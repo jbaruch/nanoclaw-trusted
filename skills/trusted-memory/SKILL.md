@@ -1,0 +1,200 @@
+---
+name: trusted-memory
+description: Session bootstrap and rolling memory updates for trusted containers. On session start, reads MEMORY.md (permanent facts), RUNBOOK.md (operational workflows), recent daily and weekly logs, and highlights.md to restore context. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences.
+---
+
+# Trusted Memory
+
+This rule applies to trusted and main containers only. `/workspace/trusted/` is mounted here. Untrusted containers do not have this mount.
+
+## Directory Structure
+
+```
+/workspace/trusted/                    # Shared across all trusted containers
+  MEMORY.md                            # Pure index — one line per entry, max 200 lines
+  RUNBOOK.md                           # Operational workflows and tool knowledge
+  key-people.md                        # Known contacts with Telegram usernames
+  highlights.md                        # Major long-term events
+  trusted_senders.md                   # Trusted sender identifiers
+  credentials_scope.md                 # Available credentials scope
+  user_*.md                            # Owner profile, preferences (type: user)
+  feedback_*.md                        # Behavioral corrections (type: feedback)
+  project_*.md                         # Ongoing work status (type: project)
+  reference_*.md                       # Pointers to external systems (type: reference)
+  memory/
+    daily/YYYY-MM-DD.md                # Cross-group shared entries with [source] tags
+    weekly/YYYY-WNN.md                 # Weekly aggregates
+    daily_discoveries.md               # Operational learnings (see daily-discoveries-rule)
+
+/workspace/group/memory/               # Group-local, not shared
+  daily/YYYY-MM-DD.md                  # Full detail for this group only
+  weekly/YYYY-WNN.md                   # Weekly summaries for this group
+```
+
+## Typed Memory Files
+
+Memory files in `/workspace/trusted/` use YAML frontmatter:
+
+```markdown
+---
+name: descriptive-slug
+description: One-line summary — used for relevance matching at bootstrap
+type: user|feedback|project|reference
+---
+
+Content here...
+```
+
+### Types
+
+**user** — Owner profile, preferences, knowledge level. Helps tailor responses.
+```markdown
+---
+name: travel-preferences
+description: Aisle seat, no red-eye, prefers direct flights
+type: user
+---
+Prefers aisle seats. No red-eye flights. Direct over layover when price difference < $200.
+```
+
+**feedback** — Behavioral corrections. Structured as rule + why + how to apply.
+```markdown
+---
+name: no-trailing-summaries
+description: Don't summarize at end of responses — user reads the diff
+type: feedback
+---
+Stop summarizing what you just did at the end of every response.
+
+**Why:** User finds it redundant — they can read the diff/output themselves.
+
+**How to apply:** After completing work, state only what's actionable or surprising. Skip recap.
+```
+
+**project** — Ongoing work with absolute dates.
+```markdown
+---
+name: deploy-freeze
+description: Merge freeze until 2026-04-10 for mobile release cut
+type: project
+---
+Merge freeze begins 2026-04-10 for mobile release. Flag any non-critical PR work after that date.
+```
+
+**reference** — Pointers to external systems.
+```markdown
+---
+name: linear-pipeline-bugs
+description: Pipeline bugs tracked in Linear project "INGEST"
+type: reference
+---
+Pipeline bugs are tracked in Linear project "INGEST".
+```
+
+### File naming
+
+`{type}_{slug}.md` — lowercase, hyphens: `feedback_no-summaries.md`, `user_travel-prefs.md`
+
+### MEMORY.md is a pure index
+
+One line per entry, under 150 characters:
+```
+- [Travel preferences](user_travel-prefs.md) — aisle seat, no red-eye, direct flights
+- [No summaries](feedback_no-summaries.md) — don't recap at end of responses
+- [Deploy freeze](project_deploy-freeze.md) — merge freeze until 2026-04-10
+```
+
+Max 200 lines. When approaching the limit, consolidate or remove stale entries.
+
+## Session Bootstrap
+
+First, check if bootstrap is needed. The sentinel is keyed to the current session ID so a new session within the same container still triggers bootstrap:
+
+```python
+import os
+sentinel = '/tmp/session_bootstrapped'
+current_session = os.environ.get('CLAUDE_SESSION_ID', '')
+needs_bootstrap = True
+if os.path.exists(sentinel):
+    stored = open(sentinel).read().strip()
+    needs_bootstrap = (stored != current_session)
+```
+
+If `needs_bootstrap` is **False** → skip bootstrap entirely. Silent.
+
+If `needs_bootstrap` is **True** → run all steps below in order:
+
+1. Read `/workspace/trusted/MEMORY.md` — this is a lightweight index. Scan entries and load the 2-3 most relevant typed files based on current context.
+2. Read `/workspace/trusted/RUNBOOK.md` — operational workflows and tool knowledge
+3. Read the most recent 2 files from `/workspace/group/memory/daily/` in full (yesterday + today)
+4. Read the most recent 2 files from `/workspace/group/memory/weekly/` as summaries (older context)
+5. Read the most recent 2 files from `/workspace/trusted/memory/daily/` (cross-group shared memory)
+6. Read `/workspace/trusted/highlights.md` if it exists (major long-term events)
+7. Write the current session_id to `session-state.json`:
+
+```python
+import sqlite3, json
+conn = sqlite3.connect('/workspace/store/messages.db')
+row = conn.execute('SELECT session_id FROM sessions LIMIT 1').fetchone()
+current_session_id = row[0] if row else None
+conn.close()
+
+try:
+    with open('/workspace/group/session-state.json') as f:
+        state = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    state = {}
+state['session_id'] = current_session_id
+with open('/workspace/group/session-state.json', 'w') as f:
+    json.dump(state, f, indent=2)
+```
+
+8. Write the sentinel with current session ID: `open('/tmp/session_bootstrapped', 'w').write(current_session)`
+
+Total context budget for memory: ~3000 tokens. Summarize large files before loading.
+
+### Bootstrap Error Handling
+
+- **Missing files**: If any file does not exist (e.g. first-ever session, no daily logs yet), skip it silently and continue with the remaining steps. Do not treat absence as an error.
+- **Missing `session-state.json`**: Treat this as a fresh session — proceed through all bootstrap steps and create the file with the current session ID at step 7.
+- **Corrupt or unreadable `session-state.json`**: Treat as missing — overwrite with the current session ID after completing bootstrap.
+- **Missing or empty daily/weekly directories**: Skip those steps and proceed. Note in the first rolling memory update that this is a new memory store.
+
+## Rolling Memory Updates
+
+After any non-trivial interaction (decision made, action taken, something new learned about the owner's preferences):
+
+**Group-local log** — append to `/workspace/group/memory/daily/YYYY-MM-DD.md`:
+```
+- HH:MM UTC — [what happened / what was learned]
+```
+
+**Cross-group shared log** — also append to `/workspace/trusted/memory/daily/YYYY-MM-DD.md` with source attribution:
+```
+- HH:MM UTC [chat-name] — [what happened / what was learned]
+```
+Where `[chat-name]` is derived from the group folder name (e.g. `main`, `swarm`, `dedy-bukhtyat`).
+
+Skip for pure heartbeats with nothing to report or trivial acknowledgements.
+
+### Saving permanent facts
+
+When learning something that should persist (owner preference, architecture decision, new contact, external system reference):
+
+1. Create or update the appropriate typed file in `/workspace/trusted/`
+2. Add or update its one-line entry in `/workspace/trusted/MEMORY.md`
+3. Also append to today's daily log (so archival can track when it was learned)
+
+Do NOT wait for nightly archival to create typed files — save immediately.
+
+## Archival
+
+Nightly housekeeping archives daily logs → weekly summaries, and weekly summaries → `highlights.md` on week boundaries. Source attribution (`[chat-name]`) is preserved throughout. This applies to both group-local and shared trusted logs.
+
+Archival is triggered by the nightly housekeeping process (not by Claude during a normal session). Weekly summaries follow the same bullet format as daily logs but group related entries thematically. On week boundaries, the weekly summary is condensed into a short paragraph appended to `highlights.md`.
+
+## Size Limits
+
+- **MEMORY.md**: 200 lines max. Each entry is one line, under 150 characters. Consolidate or remove stale entries before adding new ones.
+- **Daily logs**: 50 entries max per day. If exceeding this, scan recent entries for duplicates before appending.
+- **Weekly summaries**: 30 entries max. Compress related entries thematically.
