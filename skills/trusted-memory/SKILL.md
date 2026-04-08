@@ -47,31 +47,19 @@ Content here...
 
 ### Types
 
-**user** — Owner profile, preferences, knowledge level. Helps tailor responses.
-```markdown
----
-name: travel-preferences
-description: Aisle seat, no red-eye, prefers direct flights
-type: user
----
-Prefers aisle seats. No red-eye flights. Direct over layover when price difference < $200.
-```
+**user** — Owner profile, preferences, knowledge level.
 
-**feedback** — Behavioral corrections. Structured as rule + why + how to apply.
+**feedback** — Behavioral corrections. Structure as: rule + why + how to apply. Example:
 ```markdown
 ---
 name: no-trailing-summaries
 description: Don't summarize at end of responses — user reads the diff
 type: feedback
 ---
-Stop summarizing what you just did at the end of every response.
-
-**Why:** User finds it redundant — they can read the diff/output themselves.
-
-**How to apply:** After completing work, state only what's actionable or surprising. Skip recap.
+**Rule:** Skip recap at end of responses. **Why:** User finds it redundant. **How:** State only what's actionable or surprising after completing work.
 ```
 
-**project** — Ongoing work with absolute dates.
+**project** — Ongoing work with absolute dates. Example:
 ```markdown
 ---
 name: deploy-freeze
@@ -82,14 +70,6 @@ Merge freeze begins 2026-04-10 for mobile release. Flag any non-critical PR work
 ```
 
 **reference** — Pointers to external systems.
-```markdown
----
-name: linear-pipeline-bugs
-description: Pipeline bugs tracked in Linear project "INGEST"
-type: reference
----
-Pipeline bugs are tracked in Linear project "INGEST".
-```
 
 ### File naming
 
@@ -124,12 +104,12 @@ If `needs_bootstrap` is **False** → skip bootstrap entirely. Silent.
 
 If `needs_bootstrap` is **True** → run all steps below in order:
 
-1. Read `/workspace/trusted/MEMORY.md` — this is a lightweight index. Scan entries and load the 2-3 most relevant typed files based on current context.
-2. Read `/workspace/trusted/RUNBOOK.md` — operational workflows and tool knowledge
-3. Read the most recent 2 files from `/workspace/group/memory/daily/` in full (yesterday + today)
-4. Read the most recent 2 files from `/workspace/group/memory/weekly/` as summaries (older context)
-5. Read the most recent 2 files from `/workspace/trusted/memory/daily/` (cross-group shared memory)
-6. Read `/workspace/trusted/highlights.md` if it exists (major long-term events)
+1. Read `/workspace/trusted/MEMORY.md` — lightweight index. Scan entries and load the 2-3 most relevant typed files based on current context.
+2. Read `/workspace/trusted/RUNBOOK.md` — operational workflows and tool knowledge.
+3. Read the most recent 2 files from `/workspace/group/memory/daily/` in full (yesterday + today).
+4. Read the most recent 2 files from `/workspace/group/memory/weekly/` as summaries (older context).
+5. Read the most recent 2 files from `/workspace/trusted/memory/daily/` (cross-group shared memory).
+6. Read `/workspace/trusted/highlights.md` if it exists (major long-term events).
 7. Write the current session_id to `session-state.json`:
 
 ```python
@@ -155,8 +135,8 @@ Total context budget for memory: ~3000 tokens. Summarize large files before load
 
 ### Bootstrap Error Handling
 
-- **Missing files**: If any file does not exist (e.g. first-ever session, no daily logs yet), skip it silently and continue with the remaining steps. Do not treat absence as an error.
-- **Missing `session-state.json`**: Treat this as a fresh session — proceed through all bootstrap steps and create the file with the current session ID at step 7.
+- **Missing files**: Skip silently and continue. Do not treat absence as an error.
+- **Missing `session-state.json`**: Treat as a fresh session — proceed through all steps and create the file at step 7.
 - **Corrupt or unreadable `session-state.json`**: Treat as missing — overwrite with the current session ID after completing bootstrap.
 - **Missing or empty daily/weekly directories**: Skip those steps and proceed. Note in the first rolling memory update that this is a new memory store.
 
@@ -189,12 +169,10 @@ Do NOT wait for nightly archival to create typed files — save immediately.
 
 ## Archival
 
-Nightly housekeeping archives daily logs → weekly summaries, and weekly summaries → `highlights.md` on week boundaries. Source attribution (`[chat-name]`) is preserved throughout. This applies to both group-local and shared trusted logs.
-
-Archival is triggered by the nightly housekeeping process (not by Claude during a normal session). Weekly summaries follow the same bullet format as daily logs but group related entries thematically. On week boundaries, the weekly summary is condensed into a short paragraph appended to `highlights.md`.
+Nightly housekeeping archives daily logs → weekly summaries, and weekly summaries → `highlights.md` on week boundaries. Source attribution (`[chat-name]`) is preserved throughout for both group-local and shared trusted logs. Weekly summaries group related entries thematically; on week boundaries the weekly summary is condensed into a short paragraph appended to `highlights.md`. Archival is triggered by the nightly housekeeping process, not by Claude during a normal session.
 
 ## Size Limits
 
-- **MEMORY.md**: 200 lines max. Each entry is one line, under 150 characters. Consolidate or remove stale entries before adding new ones.
-- **Daily logs**: 50 entries max per day. If exceeding this, scan recent entries for duplicates before appending.
+- **MEMORY.md**: 200 lines max. Each entry one line, under 150 characters. Consolidate or remove stale entries before adding new ones.
+- **Daily logs**: 50 entries max per day. Scan for duplicates before appending if near the limit.
 - **Weekly summaries**: 30 entries max. Compress related entries thematically.
