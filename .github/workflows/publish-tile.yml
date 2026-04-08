@@ -17,6 +17,17 @@ jobs:
       - uses: tesslio/setup-tessl@v2
         with:
           token: ${{ secrets.TESSL_TOKEN }}
-      - run: tessl skill review --threshold 85
-      - run: tessl tile lint .
+
+      - name: Skill review (quality gate)
+        run: |
+          for skill_dir in skills/*/; do
+            [ -f "$skill_dir/SKILL.md" ] || continue
+            echo "::group::Reviewing $(basename $skill_dir)"
+            tessl skill review --threshold 85 "$skill_dir"
+            echo "::endgroup::"
+          done
+
+      - name: Lint tile
+        run: tessl tile lint .
+
       - uses: jbaruch/tessl-smart-publish@v1
