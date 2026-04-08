@@ -35,3 +35,5 @@ jobs:
         run: tessl tile lint .
 
       - uses: jbaruch/tessl-smart-publish@main
+        env:
+          TESSL_TOKEN: ${{ secrets.TESSL_TOKEN }}
