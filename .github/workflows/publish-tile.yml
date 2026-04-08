@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -23,7 +24,7 @@ jobs:
           for skill_dir in skills/*/; do
             [ -f "$skill_dir/SKILL.md" ] || continue
             echo "::group::Reviewing $(basename $skill_dir)"
-            tessl skill review --threshold 85 "$skill_dir"
+            tessl skill review --threshold 85 "$skill_dir/SKILL.md"
             echo "::endgroup::"
           done
 
