@@ -32,6 +32,6 @@ jobs:
       - name: Lint tile
         run: tessl tile lint .
 
-      - uses: jbaruch/tessl-smart-publish@v1
+      - uses: tesslio/patch-version-publish@v1
         with:
           token: ${{ secrets.TESSL_TOKEN }}
