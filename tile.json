@@ -27,6 +27,12 @@
     },
     "wiki-awareness": {
       "rules": "rules/wiki-awareness.md"
+    },
+    "compaction-aware-summaries": {
+      "rules": "rules/compaction-aware-summaries.md"
+    },
+    "proactive-fact-saving": {
+      "rules": "rules/proactive-fact-saving.md"
     }
   },
   "skills": {
