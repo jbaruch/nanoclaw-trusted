@@ -33,6 +33,9 @@
     },
     "proactive-fact-saving": {
       "rules": "rules/proactive-fact-saving.md"
+    },
+    "memory-file-locations": {
+      "rules": "rules/memory-file-locations.md"
     }
   },
   "skills": {
