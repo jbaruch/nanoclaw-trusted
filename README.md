@@ -15,7 +15,7 @@ tessl install jbaruch/nanoclaw-trusted
 | Rule | Summary |
 |------|---------|
 | [compaction-aware-summaries](rules/compaction-aware-summaries.md) | When Claude Code compacts context, the summary must preserve information that cannot be recovered from files alone. |
-| [daily-discoveries-rule](rules/daily-discoveries-rule.md) | When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately write it to… |
+| [daily-discoveries-rule](rules/daily-discoveries-rule.md) | When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately write it to `/workspace/trusted/memory/daily_discoveries.md`: |
 | [ground-truth-trusted](rules/ground-truth-trusted.md) | Extends the core ground-truth rule with verification methods and computation available to trusted containers via Composio. |
 | [memory-file-locations](rules/memory-file-locations.md) | 1. **All typed memory files go in `/workspace/trusted/` root** — never in `/workspace/trusted/memory/`. The `memory/` subdirectory is ONLY for daily logs and daily_discoveries. |
 | [no-orphan-tasks](rules/no-orphan-tasks.md) | Before scheduling any new recurring task, check: |
@@ -30,7 +30,7 @@ tessl install jbaruch/nanoclaw-trusted
 
 | Skill | Description |
 |-------|-------------|
-| [check-system-health](skills/check-system-health/SKILL.md) | Check NanoClaw system health — stuck tasks, DB size, task run failures. Uses /workspace/store/messages.db directly. Use as part of heartbeat or standalone. Triggers on "system health", "check tasks",… |
-| [trusted-memory](skills/trusted-memory/SKILL.md) | Session bootstrap and rolling memory updates for trusted containers. On session start, reads MEMORY.md (permanent facts), RUNBOOK.md (operational workflows), recent daily and weekly logs, and… |
+| [check-system-health](skills/check-system-health/SKILL.md) | Check NanoClaw system health — stuck tasks, DB size, task run failures. Uses /workspace/store/messages.db directly. Use as part of heartbeat or standalone. Triggers on "system health", "check tasks", "check database". |
+| [trusted-memory](skills/trusted-memory/SKILL.md) | Session bootstrap and rolling memory updates for trusted containers. On session start, reads MEMORY.md (permanent facts), RUNBOOK.md (operational workflows), recent daily and weekly logs, and highlights.md to restore context. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences. |
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
