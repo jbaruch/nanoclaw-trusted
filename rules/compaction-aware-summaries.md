@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Compaction-Aware Summaries
 
 When Claude Code compacts context, the summary must preserve information that cannot be recovered from files alone.

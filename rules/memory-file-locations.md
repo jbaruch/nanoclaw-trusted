@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Memory File Locations
 
 ## Directory structure
