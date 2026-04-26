@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Skill Dependencies
 
 Skills that invoke or depend on other skills. Read this to understand execution order and shared state.

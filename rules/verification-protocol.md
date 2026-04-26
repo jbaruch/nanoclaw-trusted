@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 ## Verification Protocol
 
 After these actions, verify independently before confirming to the user:

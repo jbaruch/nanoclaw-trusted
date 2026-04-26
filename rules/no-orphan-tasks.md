@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # No Orphan Scheduled Tasks
 
 ## The Rule

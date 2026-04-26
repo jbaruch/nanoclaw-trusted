@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Trusted Behavior
 
 Extends core-behavior with additional rules for trusted and main containers. Everything in core still applies — this adds to it.

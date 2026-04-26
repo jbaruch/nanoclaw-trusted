@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Ground Truth — Trusted Extensions
 
 Extends the core ground-truth rule with verification methods and computation available to trusted containers via Composio.

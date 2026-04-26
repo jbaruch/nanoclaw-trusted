@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Proactive Fact Saving
 
 Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention.

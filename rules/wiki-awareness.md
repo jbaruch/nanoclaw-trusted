@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Wiki Awareness
 
 A persistent personal wiki lives at `/workspace/trusted/wiki/` with raw sources at `/workspace/trusted/sources/`.
