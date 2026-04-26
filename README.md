@@ -18,9 +18,9 @@ tessl install jbaruch/nanoclaw-trusted
 | [daily-discoveries-rule](rules/daily-discoveries-rule.md) | When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately write it to… |
 | [ground-truth-trusted](rules/ground-truth-trusted.md) | Extends the core ground-truth rule with verification methods and computation available to trusted containers via Composio. |
 | [memory-file-locations](rules/memory-file-locations.md) | 1. **All typed memory files go in `/workspace/trusted/` root** — never in `/workspace/trusted/memory/`. The `memory/` subdirectory is ONLY for daily logs and daily_discoveries. |
-| [no-orphan-tasks](rules/no-orphan-tasks.md) | **Never create a standalone scheduled task for something that can go into an existing scheduled workflow.** |
+| [no-orphan-tasks](rules/no-orphan-tasks.md) | Before scheduling any new recurring task, check: |
 | [proactive-fact-saving](rules/proactive-fact-saving.md) | Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention. |
-| [session-bootstrap](rules/session-bootstrap.md) | **YOUR VERY FIRST ACTION in every new session — before responding to ANY message — is to run this Bash command:** |
+| [session-bootstrap](rules/session-bootstrap.md) | Then write the sentinel: `echo "done" > /tmp/session_bootstrapped` |
 | [skill-dependencies](rules/skill-dependencies.md) | Skills that invoke or depend on other skills. Read this to understand execution order and shared state. |
 | [trusted-behavior](rules/trusted-behavior.md) | Extends core-behavior with additional rules for trusted and main containers. Everything in core still applies — this adds to it. |
 | [verification-protocol](rules/verification-protocol.md) | After these actions, verify independently before confirming to the user: |
@@ -30,7 +30,7 @@ tessl install jbaruch/nanoclaw-trusted
 
 | Skill | Description |
 |-------|-------------|
-| [check-system-health](skills/check-system-health/SKILL.md) | name: check-system-health |
-| [trusted-memory](skills/trusted-memory/SKILL.md) | name: trusted-memory |
+| [check-system-health](skills/check-system-health/SKILL.md) | Check NanoClaw system health — stuck tasks, DB size, task run failures. Uses /workspace/store/messages.db directly. Use as part of heartbeat or standalone. Triggers on "system health", "check tasks",… |
+| [trusted-memory](skills/trusted-memory/SKILL.md) | Session bootstrap and rolling memory updates for trusted containers. On session start, reads MEMORY.md (permanent facts), RUNBOOK.md (operational workflows), recent daily and weekly logs, and… |
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
