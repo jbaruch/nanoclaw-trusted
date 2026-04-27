@@ -37,6 +37,9 @@
     },
     "memory-file-locations": {
       "rules": "rules/memory-file-locations.md"
+    },
+    "no-silent-defer": {
+      "rules": "rules/no-silent-defer.md"
     }
   },
   "skills": {
