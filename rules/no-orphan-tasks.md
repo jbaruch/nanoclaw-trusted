@@ -18,7 +18,7 @@ Before scheduling any new recurring task, check:
 
 Any daily recurring check that:
 - Doesn't need to run more than once a day
-- Produces results Baruch can see in the morning
+- Produces results the owner can see in the morning
 - Involves fetching data, checking state, or generating a report
 
 Examples: YouTube comment checks, GitHub activity summaries, CFP state refresh, email triage.
