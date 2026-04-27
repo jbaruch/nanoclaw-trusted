@@ -16,6 +16,8 @@
 
 ### Skills
 
+- **trusted-memory: hook-aware bootstrap note** — Restores the 2-line clarification that the agent-runner's `session-start-auto-context` hook (qwibitai/nanoclaw#141) auto-injects MEMORY.md, RUNBOOK.md, and the most-recent daily log before this skill runs, so the bootstrap's value is the **broader** set the hook does NOT cover (group-shared `trusted/` memory, weekly logs, `highlights.md`) plus the per-session sentinel + state-stamping. The note originated in admin's deleted copy (`nanoclaw-admin@13de2a98`) and was lost when admin's `trusted-memory` was deleted in `nanoclaw-admin#60` (rebase resolved the modify/delete conflict by keeping the deletion). Trusted's canonical copy didn't carry it forward; this restores the context.
+
 - **trusted-memory absorbs admin's improvements** — The admin tile carried a parallel `trusted-memory` copy that diverged after `nanoclaw-admin#31` extracted inline Python into helper scripts. Per audit decision (closes `nanoclaw-admin#52`), trusted is the canonical home for this skill. This change pulls admin's structural improvements into trusted's copy:
   - `scripts/needs-bootstrap.py` (new) — sentinel-vs-`$CLAUDE_SESSION_ID` check, replacing the inline 8-line block; exit 0 = bootstrap needed, exit 1 = skip.
   - `scripts/register-session.py` (new) — atomic `session-state.json` + `/tmp/session_bootstrapped` write under `fcntl.LOCK_EX`. Reads session_id from `/workspace/store/messages.db` with a 10s timeout; tolerates `sqlite3.Error` as `session_id=None` rather than crashing the whole bootstrap; refuses to write an empty sentinel (would silently disable bootstrap forever).
