@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Rules
+
+- **no-silent-defer** (new) — Codifies that "deferred" is only legitimate when there's a concrete handoff (resumable-cycle continuation, separately-scheduled task with a different cadence, or an explicit message to the owner). Otherwise the work is skipped, and the skip MUST be surfaced via `mcp__nanoclaw__send_message` rather than buried in a daily summary. Triggered by an incident on 2026-04-27 where `nightly-housekeeping` Step 6 routed 9 unanalyzed CFP candidates to `status: open` + `last_verified: today` with `bot_notes: "AI relevance pass deferred (lean-relevant default)"` — none had been through the AI relevance pass, and the morning-brief `last_verified ≤7 days` safety net was actively defeated by the bogus stamp. Companion compliance updates to `check-cfps` and `nightly-housekeeping` ship in `nanoclaw-admin#63`.
+
 ### Test infrastructure
 
 - **pytest baseline + CI gate** (new) — Mirrors the admin-tile scaffold (`nanoclaw-admin#59`): `pyproject.toml` carries `[tool.pytest.ini_options]` and a `tests/`-scoped ruff config; `requirements-dev.txt` pins `pytest==8.3.4` and `ruff==0.7.4`; `.github/workflows/test.yml` runs `ruff check tests/`, `ruff format --check tests/`, then `python -m pytest` on every PR and push to `main`. Initial coverage targets the two new scripts in this PR (`register-session.py`, `needs-bootstrap.py`). Folds the trusted slice of `nanoclaw-admin#55` into this PR per OpenAI policy reviewer requiring tests in the same PR as new modules.
