@@ -63,6 +63,14 @@ STATE_PATH = "/workspace/group/session-state.json"
 STATE_LOCK_PATH = STATE_PATH + ".lock"
 SENTINEL = "/tmp/session_bootstrapped"
 
+# Bumped when the on-disk shape of session-state.json changes. v1 is the
+# current canonical shape (top-level `schema_version` + `sessions.<name>`
+# subtree + back-compat top-level `session_id`). Files written before
+# this field existed are read-tolerated below and silently upgraded to
+# v1 on the next write — owner-skill migration per
+# `jbaruch/coding-policy: stateful-artifacts`.
+STATE_SCHEMA_VERSION = 1
+
 
 def read_session_id_from_db() -> Optional[str]:
     try:
@@ -200,6 +208,9 @@ def main() -> None:
             "last_seen": now_iso,
         }
         state["session_id"] = session_id  # back-compat; see PR #55
+        # Stamp schema_version last so it always reflects what this writer
+        # produces, even when starting from an unversioned legacy file.
+        state["schema_version"] = STATE_SCHEMA_VERSION
 
         try:
             atomic_write_json(STATE_PATH, state)

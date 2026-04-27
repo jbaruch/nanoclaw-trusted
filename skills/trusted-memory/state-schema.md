@@ -10,6 +10,7 @@ Mutable JSON object. Per-group, not shared across containers.
 
 ```json
 {
+  "schema_version": 1,
   "sessions": {
     "<NANOCLAW_SESSION_NAME>": {
       "started":    "<ISO-8601 UTC, e.g. 2026-04-27T15:00:00Z>",
@@ -34,4 +35,8 @@ Plain-text sentinel. One line: the value of `$CLAUDE_SESSION_ID` from the run th
 
 ## Schema versioning
 
-Neither file currently carries a `schema_version` field — both shapes are stable enough that a bump hasn't been needed. When that changes, owner skill bumps and readers gain a guard per `stateful-artifacts.md`.
+`session-state.json` carries `schema_version: 1` at the top level. v1 is the current canonical shape: `schema_version` + `sessions.<name>` subtree + back-compat top-level `session_id`. Files written before this field existed are read-tolerated by `register-session.py` (the owner skill) and silently upgraded to v1 on the next write — owner-skill migration per `jbaruch/coding-policy: stateful-artifacts`.
+
+Reader skills (`heartbeat-precheck.py`, `check-email/scripts/append-seen-ids.py`) MUST treat an unknown future version (`schema_version > 1`) as "no usable prior state" and let the next `register-session.py` run perform the upgrade — never migrate from a reader.
+
+`/tmp/session_bootstrapped` is a single-line plain-text sentinel; it has no envelope shape to version. The only behavioral contract is "non-empty content = bootstrap was completed for this `$CLAUDE_SESSION_ID`", and that contract is stable.
