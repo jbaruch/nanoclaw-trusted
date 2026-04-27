@@ -12,7 +12,7 @@ alwaysApply: true
 
 A defer is legitimate ONLY if it points to one of:
 
-1. **A `resumable-cycle` continuation** — capped, container-restarted, surfaced via `HOUSEKEEPING-CAP-HIT: <skill> <cycle_id> stopped at step <n>` to the user.
+1. **A `resumable-cycle` continuation** — capped, container-restarted, with the `HOUSEKEEPING-CAP-HIT` marker explicitly surfaced to the user (skill name, cycle/continuation identifier, where execution stopped).
 2. **A separately scheduled task** — actually present in `list_tasks`, with a different cadence/budget than the run that's deferring (otherwise the next run is the same skill under the same constraints and nothing changes).
 3. **An explicit message to Baruch** describing what was skipped and asking how to proceed.
 
