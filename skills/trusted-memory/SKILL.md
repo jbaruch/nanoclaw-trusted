@@ -59,7 +59,7 @@ type: feedback
 **Rule:** Skip recap at end of responses. **Why:** User finds it redundant. **How:** State only what's actionable or surprising after completing work.
 ```
 
-**project** — Ongoing work with absolute dates. Example:
+**project** — Ongoing work with absolute dates. Flag time-sensitive constraints. Example:
 ```markdown
 ---
 name: deploy-freeze
@@ -90,19 +90,15 @@ Max 200 lines. When approaching the limit, consolidate or remove stale entries.
 
 First, check if bootstrap is needed. The sentinel is keyed to the current session ID so a new session within the same container still triggers bootstrap:
 
-```python
-import os
-sentinel = '/tmp/session_bootstrapped'
-current_session = os.environ.get('CLAUDE_SESSION_ID', '')
-needs_bootstrap = True
-if os.path.exists(sentinel):
-    stored = open(sentinel).read().strip()
-    needs_bootstrap = (stored != current_session)
+```
+python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/needs-bootstrap.py
 ```
 
-If `needs_bootstrap` is **False** → skip bootstrap entirely. Silent.
+Exit 0 = bootstrap IS needed, exit 1 = skip bootstrap (sentinel matches current session). From Python: `subprocess.run([...]).returncode == 0`. From Bash: branch on `$?`.
 
-If `needs_bootstrap` is **True** → run all steps below in order:
+If bootstrap is NOT needed → stop here, silent.
+
+If bootstrap IS needed → run all steps below in order:
 
 1. Read `/workspace/trusted/MEMORY.md` — lightweight index. Scan entries and load the 2-3 most relevant typed files based on current context.
 2. Read `/workspace/trusted/RUNBOOK.md` — operational workflows and tool knowledge.
@@ -110,15 +106,13 @@ If `needs_bootstrap` is **True** → run all steps below in order:
 4. Read the most recent 2 files from `/workspace/group/memory/weekly/` as summaries (older context).
 5. Read the most recent 2 files from `/workspace/trusted/memory/daily/` (cross-group shared memory).
 6. Read `/workspace/trusted/highlights.md` if it exists (major long-term events).
-7. Write the current `session_id` to `/workspace/group/session-state.json` via the helper script:
+7. Write session metadata into `session-state.json` under a per-session subtree. See `state-schema.md` for the on-disk shape and the legacy back-compat field. Current-session stamping:
 
-```bash
-python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/sync-session-id.py
+```
+python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py
 ```
 
-The script reads `session_id` from the messages DB, takes `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` (the §8 registry convention for this multi-writer file), atomic-writes the JSON (tempfile → flush → fsync → mode-preserve → `os.replace` → read-back verify) only when the value actually changes, and prints a single-line JSON status to stdout: `{"session_id": "<id-or-null>", "wrote": <bool>}` — `wrote=true` means the file was rewritten this call, `wrote=false` means the cached value was already current. Exits 0 on success / 1 on any DB / lock / write failure with a `sync-session-id:`-prefixed diagnostic on stderr / 2 on usage error (extra argv). On exit 1 the caller MUST stop bootstrap — the downstream sentinel write would otherwise persist a stale session id.
-
-8. Write the sentinel with current session ID: `open('/tmp/session_bootstrapped', 'w').write(current_session)`
+Reads `session_id` from `/workspace/store/messages.db`, stamps `sessions.<$NANOCLAW_SESSION_NAME>` and top-level `session_id` in `/workspace/group/session-state.json`, and writes the bootstrap sentinel at `/tmp/session_bootstrapped` with `$CLAUDE_SESSION_ID`. Both writes are individually atomic (tempfile + fsync + chmod-to-preserve-mode + os.replace), but the two-file sequence is NOT transactional: if the sentinel write fails after the state write succeeded, the state file is already updated and the next run will still re-bootstrap (because the sentinel is missing/stale). Steps 7 and the old Step 8 "write the sentinel" are both handled by this single invocation.
 
 Total context budget for memory: ~3000 tokens. Summarize large files before loading.
 
