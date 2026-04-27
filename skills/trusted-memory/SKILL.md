@@ -110,24 +110,13 @@ If `needs_bootstrap` is **True** → run all steps below in order:
 4. Read the most recent 2 files from `/workspace/group/memory/weekly/` as summaries (older context).
 5. Read the most recent 2 files from `/workspace/trusted/memory/daily/` (cross-group shared memory).
 6. Read `/workspace/trusted/highlights.md` if it exists (major long-term events).
-7. Write the current session_id to `session-state.json`:
+7. Write the current `session_id` to `/workspace/group/session-state.json` via the helper script:
 
-```python
-import sqlite3, json
-conn = sqlite3.connect('/workspace/store/messages.db', timeout=5)
-row = conn.execute('SELECT session_id FROM sessions LIMIT 1').fetchone()
-current_session_id = row[0] if row else None
-conn.close()
-
-try:
-    with open('/workspace/group/session-state.json') as f:
-        state = json.load(f)
-except (FileNotFoundError, json.JSONDecodeError):
-    state = {}
-state['session_id'] = current_session_id
-with open('/workspace/group/session-state.json', 'w') as f:
-    json.dump(state, f, indent=2)
+```bash
+python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/sync-session-id.py
 ```
+
+The script reads `session_id` from the messages DB, takes `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` (the §8 registry convention for this multi-writer file), atomic-writes the JSON (tempfile → flush → fsync → mode-preserve → `os.replace` → read-back verify) only when the value actually changes, and prints a single-line JSON status to stdout: `{"session_id": "<id-or-null>", "wrote": <bool>}` — `wrote=true` means the file was rewritten this call, `wrote=false` means the cached value was already current. Exits 0 on success / 1 on any DB / lock / write failure with a `sync-session-id:`-prefixed diagnostic on stderr / 2 on usage error (extra argv). On exit 1 the caller MUST stop bootstrap — the downstream sentinel write would otherwise persist a stale session id.
 
 8. Write the sentinel with current session ID: `open('/tmp/session_bootstrapped', 'w').write(current_session)`
 
