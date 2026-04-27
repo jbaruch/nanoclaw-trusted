@@ -1,0 +1,35 @@
+name: Test
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements-dev.txt
+
+      # Lint runs before tests per `jbaruch/coding-policy: code-formatting`
+      # — catches style/import issues fast and cheaply before pytest
+      # boots fixtures.
+      - name: Lint (ruff)
+        run: |
+          python -m ruff check tests/
+          python -m ruff format --check tests/
+
+      - name: Pytest
+        run: python -m pytest
