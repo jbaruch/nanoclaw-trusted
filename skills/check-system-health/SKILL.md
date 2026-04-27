@@ -14,7 +14,7 @@ DB is at `/workspace/store/messages.db`. Run each check below.
 ```bash
 python3 -c "
 import sqlite3
-conn = sqlite3.connect('/workspace/store/messages.db')
+conn = sqlite3.connect('/workspace/store/messages.db', timeout=5)
 rows = conn.execute(\"SELECT id, substr(prompt, 1, 50), next_run FROM scheduled_tasks WHERE status='active' AND next_run <= datetime('now', '-5 minutes')\").fetchall()
 for r in rows: print(r)
 print(f'stuck={len(rows)}')
@@ -29,7 +29,7 @@ conn.close()
 ```bash
 python3 -c "
 import sqlite3, os
-conn = sqlite3.connect('/workspace/store/messages.db')
+conn = sqlite3.connect('/workspace/store/messages.db', timeout=5)
 msg_count = conn.execute('SELECT COUNT(*) FROM messages').fetchone()[0]
 log_count = conn.execute('SELECT COUNT(*) FROM task_run_logs').fetchone()[0]
 conn.close()
