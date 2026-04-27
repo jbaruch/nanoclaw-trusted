@@ -114,7 +114,7 @@ If `needs_bootstrap` is **True** → run all steps below in order:
 
 ```python
 import sqlite3, json
-conn = sqlite3.connect('/workspace/store/messages.db')
+conn = sqlite3.connect('/workspace/store/messages.db', timeout=5)
 row = conn.execute('SELECT session_id FROM sessions LIMIT 1').fetchone()
 current_session_id = row[0] if row else None
 conn.close()
