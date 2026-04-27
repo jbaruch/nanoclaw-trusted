@@ -116,7 +116,7 @@ If `needs_bootstrap` is **True** → run all steps below in order:
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/sync-session-id.py
 ```
 
-The script reads `session_id` from the messages DB, takes `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` (the §8 registry convention for this multi-writer file), atomic-writes the JSON (tempfile → flush → fsync → mode-preserve → `os.replace` → read-back verify), and exits 0 on success / 1 on any DB / lock / write failure with a `sync-session-id:`-prefixed diagnostic on stderr. On exit 1 the caller MUST stop bootstrap — the downstream sentinel write would otherwise persist a stale session id.
+The script reads `session_id` from the messages DB, takes `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` (the §8 registry convention for this multi-writer file), atomic-writes the JSON (tempfile → flush → fsync → mode-preserve → `os.replace` → read-back verify) only when the value actually changes, and prints a single-line JSON status to stdout: `{"session_id": "<id-or-null>", "wrote": <bool>}` — `wrote=true` means the file was rewritten this call, `wrote=false` means the cached value was already current. Exits 0 on success / 1 on any DB / lock / write failure with a `sync-session-id:`-prefixed diagnostic on stderr / 2 on usage error (extra argv). On exit 1 the caller MUST stop bootstrap — the downstream sentinel write would otherwise persist a stale session id.
 
 8. Write the sentinel with current session ID: `open('/tmp/session_bootstrapped', 'w').write(current_session)`
 

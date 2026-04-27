@@ -20,8 +20,11 @@ Atomic write per §5 contract:
   tempfile (same dir) → write → flush → fsync → chmod (preserve) →
   os.replace → read-back verification.
 
-Output: nothing on stdout (success is silent — the caller already
-asked for the change). Diagnostic on stderr on failure.
+Output (stdout): single-line JSON
+  `{"session_id": "<id-or-null>", "wrote": <bool>}`.
+  - `wrote=true` means the state file was rewritten this call.
+  - `wrote=false` means the value was already current (no-op).
+Diagnostic on stderr on failure.
 
 Exit codes:
   0 — wrote successfully (or no-op when DB has no session row).
@@ -179,17 +182,23 @@ def main() -> int:
             return 1
 
         state = load_state()
-        state['session_id'] = session_id
-        try:
-            atomic_write(state)
-        except (OSError, RuntimeError) as exc:
-            # OSError covers ENOSPC, EACCES, fsync, replace failures.
-            # RuntimeError is the read-back-mismatch path.
-            sys.stderr.write(
-                f"sync-session-id: write failed for {STATE_PATH}: "
-                f"{type(exc).__name__}: {exc}\n"
-            )
-            return 1
+        # Skip the rewrite if the file already carries the current
+        # session_id — saves a fsync/replace round-trip on the common
+        # idempotent-call path. The atomic-write contract still fires
+        # whenever there's an actual change.
+        wrote = state.get('session_id') != session_id
+        if wrote:
+            state['session_id'] = session_id
+            try:
+                atomic_write(state)
+            except (OSError, RuntimeError) as exc:
+                # OSError covers ENOSPC, EACCES, fsync, replace failures.
+                # RuntimeError is the read-back-mismatch path.
+                sys.stderr.write(
+                    f"sync-session-id: write failed for {STATE_PATH}: "
+                    f"{type(exc).__name__}: {exc}\n"
+                )
+                return 1
     finally:
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_UN)
@@ -200,6 +209,7 @@ def main() -> int:
             pass
         lock_fd.close()
 
+    print(json.dumps({"session_id": session_id, "wrote": wrote}))
     return 0
 
 
