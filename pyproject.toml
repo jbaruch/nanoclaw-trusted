@@ -1,0 +1,15 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.ruff]
+# Scoped to tests/ until tile-wide adoption is decided in a separate PR
+# per `jbaruch/coding-policy: ci-safety` (don't smuggle CI changes for
+# things outside this PR's stated scope). Existing tile scripts under
+# skills/*/scripts/ predate this lint config and are out-of-scope here.
+src = ["tests"]
+include = ["tests/**/*.py"]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

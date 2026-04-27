@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Test infrastructure
+
+- **pytest baseline + CI gate** (new) — Mirrors the admin-tile scaffold (`nanoclaw-admin#59`): `pyproject.toml` carries `[tool.pytest.ini_options]` and a `tests/`-scoped ruff config; `requirements-dev.txt` pins `pytest==8.3.4` and `ruff==0.7.4`; `.github/workflows/test.yml` runs `ruff check tests/`, `ruff format --check tests/`, then `python -m pytest` on every PR and push to `main`. Initial coverage targets the two new scripts in this PR (`register-session.py`, `needs-bootstrap.py`). Folds the trusted slice of `nanoclaw-admin#55` into this PR per OpenAI policy reviewer requiring tests in the same PR as new modules.
+
+### Scripts
+
+- **register-session.py / needs-bootstrap.py emit JSON status** — Per `jbaruch/coding-policy: script-delegation` (JSON-producing). `register-session.py` prints `{"session_id", "session_name", "schema_version", "wrote_state", "wrote_sentinel"}`; `needs-bootstrap.py` prints `{"needs_bootstrap", "current", "stored", "reason"}`. Exit codes remain the authoritative success signal — JSON is for callers that want to log or inspect. SKILL.md updated to mention both contracts.
+
 ### Skills
 
 - **trusted-memory absorbs admin's improvements** — The admin tile carried a parallel `trusted-memory` copy that diverged after `nanoclaw-admin#31` extracted inline Python into helper scripts. Per audit decision (closes `nanoclaw-admin#52`), trusted is the canonical home for this skill. This change pulls admin's structural improvements into trusted's copy:

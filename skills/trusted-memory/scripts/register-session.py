@@ -242,6 +242,7 @@ def main() -> None:
             "register-session: $CLAUDE_SESSION_ID missing/empty; skipping sentinel write so next run re-bootstraps",
             file=sys.stderr,
         )
+        emit_status(session_id, session_name, wrote_sentinel=False)
         return
 
     try:
@@ -252,6 +253,31 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    emit_status(session_id, session_name, wrote_sentinel=True)
+
+
+def emit_status(
+    session_id: Optional[str], session_name: str, *, wrote_sentinel: bool
+) -> None:
+    """Single-line JSON status to stdout per `script-delegation` rule.
+
+    Always prints on a successful state write. `wrote_state` is always true
+    here because reaching this point implies the atomic state write
+    succeeded; failure paths exit non-zero before getting here. The exit
+    code remains the authoritative success signal — JSON is for callers
+    that want to log/inspect what was registered."""
+    print(
+        json.dumps(
+            {
+                "session_id": session_id,
+                "session_name": session_name,
+                "schema_version": STATE_SCHEMA_VERSION,
+                "wrote_state": True,
+                "wrote_sentinel": wrote_sentinel,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

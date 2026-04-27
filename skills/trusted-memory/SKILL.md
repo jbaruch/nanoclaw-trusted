@@ -94,7 +94,7 @@ First, check if bootstrap is needed. The sentinel is keyed to the current sessio
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/needs-bootstrap.py
 ```
 
-Exit 0 = bootstrap IS needed, exit 1 = skip bootstrap (sentinel matches current session). From Python: `subprocess.run([...]).returncode == 0`. From Bash: branch on `$?`.
+Exit 0 = bootstrap IS needed, exit 1 = skip bootstrap (sentinel matches current session). From Python: `subprocess.run([...]).returncode == 0`. From Bash: branch on `$?`. Also emits a single-line JSON status to stdout (`{"needs_bootstrap": <bool>, "current": ..., "stored": ..., "reason": ...}`) for callers that want to log the decision.
 
 If bootstrap is NOT needed → stop here, silent.
 
@@ -112,7 +112,7 @@ If bootstrap IS needed → run all steps below in order:
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py
 ```
 
-Reads `session_id` from `/workspace/store/messages.db`, stamps `sessions.<$NANOCLAW_SESSION_NAME>` and top-level `session_id` in `/workspace/group/session-state.json`, and writes the bootstrap sentinel at `/tmp/session_bootstrapped` with `$CLAUDE_SESSION_ID`. Both writes are individually atomic (tempfile + fsync + chmod-to-preserve-mode + os.replace), but the two-file sequence is NOT transactional: if the sentinel write fails after the state write succeeded, the state file is already updated and the next run will still re-bootstrap (because the sentinel is missing/stale). Steps 7 and the old Step 8 "write the sentinel" are both handled by this single invocation.
+Reads `session_id` from `/workspace/store/messages.db`, stamps `sessions.<$NANOCLAW_SESSION_NAME>` and top-level `session_id` in `/workspace/group/session-state.json` (with `schema_version: 1` per `state-schema.md`), and writes the bootstrap sentinel at `/tmp/session_bootstrapped` with `$CLAUDE_SESSION_ID`. Both writes are individually atomic (tempfile + fsync + chmod-to-preserve-mode + os.replace), but the two-file sequence is NOT transactional: if the sentinel write fails after the state write succeeded, the state file is already updated and the next run will still re-bootstrap (because the sentinel is missing/stale). Steps 7 and the old Step 8 "write the sentinel" are both handled by this single invocation. Emits a single-line JSON status to stdout (`{"session_id": ..., "session_name": ..., "schema_version": 1, "wrote_state": true, "wrote_sentinel": <bool>}`); `wrote_sentinel` is `false` when `$CLAUDE_SESSION_ID` is missing/empty (deliberate skip per the sentinel-empty guard).
 
 Total context budget for memory: ~3000 tokens. Summarize large files before loading.
 
