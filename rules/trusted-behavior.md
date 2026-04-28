@@ -12,7 +12,7 @@ SOUL.md path: `/workspace/global/SOUL.md`. After context compaction, re-read it 
 
 ## Async Tasks — Extended Protocol
 
-Core says: react → background agent → deliver. The runtime react-first hook handles step 1 (react with 👀) before this rule applies — see `core/telegram-protocol.md`. After that:
+Core says: react → background agent → deliver. The runtime react-first hook handles step 1 (react with 👀) before this rule applies — see the `jbaruch/nanoclaw-core` tile's `rules/telegram-protocol.md`. After that:
 
 1. **Note the message ID** from `<message id="...">` — needed for reply threading.
 2. **More specific ACK if warranted** — `mcp__nanoclaw__react_to_message(messageId: "MESSAGE_ID", emoji: "👍")` once you've inspected the request. The runtime emoji is the floor; specific reactions supersede it.
@@ -92,7 +92,7 @@ Read/write `/workspace/global/CLAUDE.md` for cross-group facts. Only update when
 
 ## Verification
 
-The universal pre-claim and post-action verification rules — including "memory is a hint, not a fact" and "tool-call success is not verification" — live in `core/ground-truth.md`. The trusted-tier memory locations (`/workspace/trusted/MEMORY.md`, `/workspace/trusted/memory/daily/`, `/workspace/trusted/highlights.md`) are governed by the same rule.
+The universal pre-claim and post-action verification rules — including "memory is a hint, not a fact" and "tool-call success is not verification" — live in the `jbaruch/nanoclaw-core` tile's `rules/ground-truth.md`. The trusted-tier memory locations (`/workspace/trusted/MEMORY.md`, `/workspace/trusted/memory/daily/`, `/workspace/trusted/highlights.md`) are governed by the same rule.
 
 ## Duplicate Prevention
 
