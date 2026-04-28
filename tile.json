@@ -40,6 +40,9 @@
     },
     "no-silent-defer": {
       "rules": "rules/no-silent-defer.md"
+    },
+    "installed-content-immutable": {
+      "rules": "rules/installed-content-immutable.md"
     }
   },
   "skills": {
