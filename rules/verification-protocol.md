@@ -4,12 +4,6 @@ alwaysApply: true
 
 ## Verification Protocol
 
-After these actions, verify independently before confirming to the user:
+The universal post-action verification rule lives in the `jbaruch/nanoclaw-core` tile's `rules/ground-truth.md` ("Verifying after a state change" section). That rule covers file writes, task schedules, API calls, memory updates, and IPC messages — all of which apply on this trust tier as well.
 
-- **File writes**: Read the file back. Compare key content against what you intended to write.
-- **Task scheduling**: Read `current_tasks.json`. Confirm the task appears with the correct schedule.
-- **API calls via Composio**: Check the response status AND the response body. A 200 doesn't mean the data is correct.
-- **Memory updates**: Read the memory file back after writing. Confirm the content matches.
-- **IPC messages**: After writing to `/workspace/ipc/messages/`, verify the file exists and contains the expected payload.
-
-The tool call returning success is NOT verification. The tool call succeeding means the tool ran — not that the outcome is what you intended. Read it back.
+Trusted-tier addendum: `/workspace/ipc/messages/` is shared with the host orchestrator, so an IPC write that succeeds at the syscall layer can still be in-flight from the host's perspective. After writing, verify both that the file exists at the expected path AND that its payload matches what you intended — partial writes from a crash mid-flight are observable here in a way they aren't on tile-local files.
