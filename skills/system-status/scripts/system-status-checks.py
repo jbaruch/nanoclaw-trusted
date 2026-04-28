@@ -136,6 +136,12 @@ def main() -> int:
 
     if not os.path.exists(args.db):
         payload["alerts"].append(f"db missing: {args.db}")
+        print(
+            f"system-status-checks: db missing at {args.db}; "
+            f"verify the trusted-tier mount points at the orchestrator's "
+            f"messages.db, or pass --db <path> to override.",
+            file=sys.stderr,
+        )
         print(json.dumps(payload))
         return 1
 
@@ -144,26 +150,42 @@ def main() -> int:
     except OSError as e:
         payload["alerts"].append(f"db size unreadable: {e}")
 
+    queries_succeeded = 0
+    queries_attempted = 0
     conn = None
     try:
         conn = sqlite3.connect(args.db, timeout=5)
+        queries_attempted += 1
         try:
             payload["stuck_tasks"] = _query_stuck_tasks(
                 conn, args.stuck_grace_minutes
             )
             payload["stuck_count"] = len(payload["stuck_tasks"])
+            queries_succeeded += 1
         except sqlite3.Error as e:
             payload["alerts"].append(f"stuck-tasks query failed: {e}")
+        queries_attempted += 1
         try:
             payload["row_counts"] = _query_row_counts(conn)
+            queries_succeeded += 1
         except sqlite3.Error as e:
             payload["alerts"].append(f"row-counts query failed: {e}")
+        queries_attempted += 1
         try:
             payload["recent_failures"] = _query_recent_failures(conn)
+            queries_succeeded += 1
         except sqlite3.Error as e:
             payload["alerts"].append(f"recent-failures query failed: {e}")
     except sqlite3.Error as e:
         payload["alerts"].append(f"db connect failed: {e}")
+        print(
+            f"system-status-checks: sqlite3 connect failed against {args.db}: {e}. "
+            f"Check that the file is a valid SQLite database and that the "
+            f"trusted container has read access to it (the trusted tier is "
+            f"read-only on this mount; if the file was moved, update the "
+            f"--db flag or the orchestrator mount).",
+            file=sys.stderr,
+        )
         print(json.dumps(payload))
         return 1
     finally:
@@ -193,6 +215,21 @@ def main() -> int:
         payload["alerts"].append(
             f"recent task failures: {len(payload['recent_failures'])} in last 24h"
         )
+
+    # Per-docstring contract: exit 1 if connect succeeded but every
+    # query raised — without this, a schema mismatch / dropped table
+    # would produce a "silent green" with only failure-alerts populated.
+    if queries_attempted > 0 and queries_succeeded == 0:
+        print(
+            f"system-status-checks: connected to {args.db} but every check "
+            f"raised; see `alerts` in stdout for per-query reasons. Likely "
+            f"causes: schema drift, missing tables, or a corrupted DB. "
+            f"Run `sqlite3 {args.db} '.schema'` to verify the expected "
+            f"tables (messages, task_run_logs, scheduled_tasks) exist.",
+            file=sys.stderr,
+        )
+        print(json.dumps(payload))
+        return 1
 
     print(json.dumps(payload))
     return 0

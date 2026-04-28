@@ -180,6 +180,85 @@ def test_message_rowcount_above_threshold_alerts(
     assert any("messages rowcount 15" in a for a in payload["alerts"])
 
 
+def test_task_log_rowcount_above_threshold_alerts(
+    system_status_checks, monkeypatch, capsys, tmp_path
+):
+    """Symmetric coverage to the messages rowcount test: seed
+    `task_run_logs` past an overridden warn threshold and assert the
+    matching alert fires. Use a small seed + override to keep the test
+    fast (the production default is 10k)."""
+    db = tmp_path / "messages.db"
+    _build_test_db(db)
+    conn = sqlite3.connect(str(db))
+    # Pre-date all rows by 48h so they're outside the recent-failures
+    # 24h window — keeps this test focused on the rowcount-threshold
+    # alert and prevents the recent-failures alert from also firing.
+    old = (datetime.now(timezone.utc) - timedelta(hours=48)).strftime("%Y-%m-%d %H:%M:%S")
+    for i in range(20):
+        conn.execute(
+            "INSERT INTO task_run_logs VALUES (?, ?, 'success')",
+            (f"task-{i}", old),
+        )
+    conn.commit()
+    conn.close()
+
+    code, out, _ = _run(
+        system_status_checks,
+        monkeypatch,
+        capsys,
+        "--db",
+        str(db),
+        "--task-log-row-warn",
+        "10",
+    )
+    payload = json.loads(out)
+    assert code == 0
+    assert payload["row_counts"]["task_run_logs"] == 20
+    assert any("task_run_logs rowcount 20" in a for a in payload["alerts"])
+
+
+def test_db_missing_writes_stderr_diagnostic(system_status_checks, monkeypatch, capsys, tmp_path):
+    """Hard-failure paths must emit a stderr diagnostic per
+    `coding-policy: script-delegation`'s self-error-handling clause.
+    The JSON payload still goes to stdout so the SKILL.md can report
+    uniformly; stderr explains what to do next."""
+    code, out, err = _run(
+        system_status_checks,
+        monkeypatch,
+        capsys,
+        "--db",
+        str(tmp_path / "missing.db"),
+    )
+    assert code == 1
+    assert out  # JSON still on stdout
+    assert "db missing" in err
+    assert "verify the trusted-tier mount" in err
+
+
+def test_all_queries_fail_returns_exit_1(system_status_checks, monkeypatch, capsys, tmp_path):
+    """Connect succeeds but every probe raises (e.g. schema drift,
+    missing tables) → exit 1, stderr diagnostic, JSON payload still
+    on stdout with per-query failure alerts."""
+    db = tmp_path / "messages.db"
+    # Create a valid SQLite file with NONE of the expected tables —
+    # connect will succeed; every query will raise sqlite3.OperationalError.
+    conn = sqlite3.connect(str(db))
+    conn.executescript("CREATE TABLE unrelated (x INTEGER);")
+    conn.commit()
+    conn.close()
+
+    code, out, err = _run(system_status_checks, monkeypatch, capsys, "--db", str(db))
+    assert code == 1
+    payload = json.loads(out)
+    # All three per-query failure alerts present.
+    assert any("stuck-tasks query failed" in a for a in payload["alerts"])
+    assert any("row-counts query failed" in a for a in payload["alerts"])
+    assert any("recent-failures query failed" in a for a in payload["alerts"])
+    # stderr explains the remediation path.
+    assert "every check raised" in err
+    assert ".schema" in err
+
+
 def test_db_size_above_threshold_alerts(system_status_checks, monkeypatch, capsys, tmp_path):
     """Inflate the test DB enough that its size in MB rounds up past
     0.0 (so a `0 MB` threshold strictly fires). Seeding ~80 KB of
