@@ -12,7 +12,7 @@ SOUL.md path: `/workspace/global/SOUL.md`. After context compaction, re-read it 
 
 ## Async Tasks — Extended Protocol
 
-Core says: react → background agent → deliver. The runtime react-first hook handles step 1 (react with 👀) before this rule applies — see the `jbaruch/nanoclaw-core` tile's `rules/telegram-protocol.md`. After that:
+Core says: react → background agent → deliver. The runtime react-first hook reacts with 👀 *before* this rule applies — see the `jbaruch/nanoclaw-core` tile's `rules/telegram-protocol.md`. The numbered steps below pick up after that automatic acknowledgement:
 
 1. **Note the message ID** from `<message id="...">` — needed for reply threading.
 2. **More specific ACK if warranted** — `mcp__nanoclaw__react_to_message(messageId: "MESSAGE_ID", emoji: "👍")` once you've inspected the request. The runtime emoji is the floor; specific reactions supersede it.
