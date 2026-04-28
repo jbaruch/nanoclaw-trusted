@@ -8,9 +8,9 @@ Installed skills (`/home/node/.claude/skills/<name>/SKILL.md`) and rules (`/home
 
 ## Why
 
-Pre-fix, agents occasionally `Write`/`Edit` over their own installed `SKILL.md` / `RULES.md` in-place. The changes never persisted past container restart (the orchestrator rebuilds `skills/` and `.tessl/` from the registry at the top of every spawn), but they were live for the current container's lifetime. That meant a session could operate on monkey-patched skills for minutes-to-hours and behave differently from what the registry actually serves — diagnoses got "wait, did the rule say X or Y?" and the answer depended on which container snapshot you were looking at.
+Pre-fix, agents occasionally `Write`/`Edit` over their own installed `SKILL.md` files (under `skills/<name>/`) or per-tile rule markdowns (under `.tessl/tiles/<owner>/<tile>/rules/<rule>.md`) in-place. The changes never persisted past container restart (the orchestrator rebuilds `skills/` and `.tessl/` from the registry at the top of every spawn), but they were live for the current container's lifetime. That meant a session could operate on monkey-patched skills for minutes-to-hours and behave differently from what the registry actually serves — diagnoses got "wait, did the rule say X or Y?" and the answer depended on which container snapshot you were looking at.
 
-Two readonly bind-mounts now layer on top of the writable `/home/node/.claude` parent so the kernel rejects any write to those subdirs at the syscall level. The agent's `Write`/`Edit` tools cannot patch installed content mid-session anymore.
+Two read-only bind-mounts now layer on top of the writable `/home/node/.claude` parent so the kernel rejects any write to those subdirs at the syscall level. The agent's `Write`/`Edit` tools cannot patch installed content mid-session anymore.
 
 ## What's still writable
 
