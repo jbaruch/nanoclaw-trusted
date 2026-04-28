@@ -1,6 +1,6 @@
 {
   "name": "jbaruch/nanoclaw-trusted",
-  "version": "0.1.50",
+  "version": "0.1.51",
   "summary": "Rules for trusted NanoClaw groups. Shared memory, session bootstrap, cross-group memory updates. Loaded for trusted and main containers only.",
   "entrypoint": "README.md",
   "private": false,
