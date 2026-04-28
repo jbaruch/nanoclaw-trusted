@@ -12,10 +12,10 @@ SOUL.md path: `/workspace/global/SOUL.md`. After context compaction, re-read it 
 
 ## Async Tasks — Extended Protocol
 
-Core says: react → background agent → deliver. Here's the full version:
+Core says: react → background agent → deliver. The runtime react-first hook handles step 1 (react with 👀) before this rule applies — see `core/telegram-protocol.md`. After that:
 
 1. **Note the message ID** from `<message id="...">` — needed for reply threading.
-2. **ACK with reaction** — `mcp__nanoclaw__react_to_message(messageId: "MESSAGE_ID", emoji: "👍")`. No text before this.
+2. **More specific ACK if warranted** — `mcp__nanoclaw__react_to_message(messageId: "MESSAGE_ID", emoji: "👍")` once you've inspected the request. The runtime emoji is the floor; specific reactions supersede it.
 3. **Background Agent** — `Agent` with `run_in_background: true`. Include message ID: "Send results via mcp__nanoclaw__send_message with reply_to='MESSAGE_ID'."
 4. Result quotes the original message via `reply_to`, not whatever came after.
 
@@ -90,22 +90,9 @@ Read-only file system error → you're untrusted. Don't retry.
 
 Read/write `/workspace/global/CLAUDE.md` for cross-group facts. Only update when explicitly asked.
 
-## No Ghost Confirmations
+## Verification
 
-Never confirm an uncompleted action. Read the file back after writing. Check API responses before reporting success.
-
-## Memory Verification
-
-Memories from `/workspace/trusted/MEMORY.md`, `/workspace/trusted/memory/daily/`, and `/workspace/trusted/highlights.md` are **hints**, not facts.
-Before acting on a recalled memory:
-- If it names a file path: verify the file exists
-- If it names a function, API, or config: search the workspace for it
-- If it describes state ("task X is pending", "deploy is frozen"): check current state
-- If the user is about to act on your recommendation: verify first
-
-"The memory says X" ≠ "X is true now."
-
-When a memory conflicts with what you observe, trust current state and update/remove the stale memory.
+The universal pre-claim and post-action verification rules — including "memory is a hint, not a fact" and "tool-call success is not verification" — live in `core/ground-truth.md`. The trusted-tier memory locations (`/workspace/trusted/MEMORY.md`, `/workspace/trusted/memory/daily/`, `/workspace/trusted/highlights.md`) are governed by the same rule.
 
 ## Duplicate Prevention
 
