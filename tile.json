@@ -43,8 +43,8 @@
     }
   },
   "skills": {
-    "check-system-health": {
-      "path": "skills/check-system-health/SKILL.md"
+    "system-status": {
+      "path": "skills/system-status/SKILL.md"
     },
     "trusted-memory": {
       "path": "skills/trusted-memory/SKILL.md"
