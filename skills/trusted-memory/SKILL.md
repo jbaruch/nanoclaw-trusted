@@ -88,7 +88,7 @@ Max 200 lines. When approaching the limit, consolidate or remove stale entries.
 
 ## Session Bootstrap
 
-> The agent-runner now auto-injects MEMORY.md, RUNBOOK.md, and the most-recent daily log via the `session-start-auto-context` hook (qwibitai/nanoclaw#141), so those three files are already in context when this skill runs. This skill's bootstrap still adds value because it reads the **broader** set the hook does NOT cover — group-shared `trusted/` memory, weekly logs, and `highlights.md` — plus does the per-session sentinel + state-stamping.
+> The agent-runner now auto-injects MEMORY.md, RUNBOOK.md, and the most-recent daily log via the `session-start-auto-context` hook (jbaruch/nanoclaw#141), so those three files are already in context when this skill runs. This skill's bootstrap still adds value because it reads the **broader** set the hook does NOT cover — group-shared `trusted/` memory, weekly logs, and `highlights.md` — plus does the per-session sentinel + state-stamping.
 
 First, check if bootstrap is needed. The sentinel is keyed to the current session ID so a new session within the same container still triggers bootstrap:
 
