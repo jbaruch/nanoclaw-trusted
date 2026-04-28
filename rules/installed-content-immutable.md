@@ -27,7 +27,7 @@ Only `skills/` and `.tessl/` are read-only.
 Modifications must flow through the staging → promote → publish → update pipeline:
 
 1. Edit the skill or rule in NAS staging (`groups/<group>/staging/<tile>/skills/<name>/SKILL.md` or `.../rules/<name>.md`).
-2. Invoke `promote_to_tile_repo` (MCP tool) targeting the right tile. The promote pipeline opens a tile-repo PR, summons Copilot, and lands the change.
+2. Invoke `tessl__promote-tiles` (the admin-side skill, same name `no-orphan-tasks.md` uses) targeting the right tile. The skill opens a tile-repo PR, summons Copilot, and iterates fixups via the `push_staged_to_branch` MCP tool until the PR merges.
 3. The tile's GHA `publish-tile.yml` workflow patches the version and publishes to the tessl registry on merge.
 4. The next `./scripts/deploy.sh` runs `tessl update` inside the orchestrator and the new content lands at `/app/tessl-workspace/.tessl/tiles/...`.
 5. Each subsequent agent-container spawn sees the new content (orchestrator's per-spawn cpSync rebuilds the per-group `skills/` and `.tessl/` from the registry).
