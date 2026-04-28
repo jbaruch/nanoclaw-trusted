@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Skills
+
+- **`check-system-health` renamed to `system-status` + content rewritten** — Resolves the cross-tile name collision flagged in `nanoclaw-admin#52` / `#65` (admin and trusted both shipped a skill named `check-system-health`, both installing under `tessl__check-system-health/` so the second-installed copy shadowed the first silently). Per the owner-recorded split decision: admin keeps the full SQLite + filesystem + IPC + container probe with the dismiss-mechanism management; trusted gets a read-only narrower subset under the new non-colliding name. The three previous `python3 -c "..."` inline blocks (which violated `coding-policy: script-delegation`) move to `scripts/system-status-checks.py` as a single deterministic JSON-producing probe; SKILL.md becomes prose-and-action with explicit Step 1 (run script) / Step 2 (act on alerts). The dismiss-mechanism section is dropped — trusted is read-only with respect to admin's dismiss state. `tile.json` rule entry renamed `check-system-health` → `system-status`. `tests/test_system_status_checks.py` covers seven scenarios: missing DB → exit 1, clean DB → empty alerts, stuck-task threshold crossing, recent failure within 24h, old failure outside 24h excluded, message rowcount above threshold, DB size above threshold.
+
 ### Rules
 
 - **no-silent-defer** (new) — Codifies that "deferred" is only legitimate when there's a concrete handoff (resumable-cycle continuation, separately-scheduled task with a different cadence, or an explicit message to the owner). Otherwise the work is skipped, and the skip MUST be surfaced via `mcp__nanoclaw__send_message` rather than buried in a daily summary. Triggered by an incident on 2026-04-27 where `nightly-housekeeping` Step 6 routed 9 unanalyzed CFP candidates to `status: open` + `last_verified: today` with `bot_notes: "AI relevance pass deferred (lean-relevant default)"` — none had been through the AI relevance pass, and the morning-brief `last_verified ≤7 days` safety net was actively defeated by the bogus stamp. Companion compliance updates to `check-cfps` and `nightly-housekeeping` ship in `nanoclaw-admin#63`.

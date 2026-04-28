@@ -31,7 +31,7 @@ tessl install jbaruch/nanoclaw-trusted
 
 | Skill | Description |
 |-------|-------------|
-| [check-system-health](skills/check-system-health/SKILL.md) | Check NanoClaw system health — stuck tasks, DB size, task run failures. Uses /workspace/store/messages.db directly. Use as part of heartbeat or standalone. Triggers on "system health", "check tasks", "check database". |
+| [system-status](skills/system-status/SKILL.md) | Read-only system-status probe for trusted-tier NanoClaw containers — surfaces stuck scheduled tasks, DB size, and recent task-run failures from the orchestrator's SQLite. Use as part of heartbeat or standalone. Renamed from `check-system-health` (which collided with the admin tile's same-named skill, per `nanoclaw-admin#65`); admin keeps the canonical full health probe with dismiss-mechanism management. |
 | [trusted-memory](skills/trusted-memory/SKILL.md) | Session bootstrap and rolling memory updates for trusted containers. On session start, reads MEMORY.md (permanent facts), RUNBOOK.md (operational workflows), recent daily and weekly logs, and highlights.md to restore context. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences. |
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
