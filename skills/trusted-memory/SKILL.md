@@ -127,20 +127,27 @@ Total context budget for memory: ~3000 tokens. Summarize large files before load
 
 ## Rolling Memory Updates
 
-After any non-trivial interaction (decision made, action taken, something new learned about the owner's preferences):
+After any non-trivial interaction (decision made, action taken, something new learned about the owner's preferences), append to the daily log via `scripts/append-to-daily-log.py`. The helper holds `LOCK_EX` on `<daily-file>.lock` for the read-modify-write cycle so concurrent writers (default container, maintenance container, sub-skills) cannot clobber each other's appends.
 
-**Group-local log** — append to `/workspace/group/memory/daily/YYYY-MM-DD.md`:
+**Group-local log** — entry shape `- HH:MM UTC — [what happened / what was learned]`:
+
 ```
-- HH:MM UTC — [what happened / what was learned]
+python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/append-to-daily-log.py \
+  --target group \
+  --line "- HH:MM UTC — what happened"
 ```
 
-**Cross-group shared log** — also append to `/workspace/trusted/memory/daily/YYYY-MM-DD.md` with source attribution:
-```
-- HH:MM UTC [chat-name] — [what happened / what was learned]
-```
-Where `[chat-name]` is derived from the group folder name (e.g. `main`, `swarm`, `dedy-bukhtyat`).
+**Cross-group shared log** — entry shape `- HH:MM UTC [chat-name] — ...`, where `[chat-name]` is derived from the group folder name (e.g. `main`, `swarm`, `dedy-bukhtyat`):
 
-Skip for pure heartbeats with nothing to report or trivial acknowledgements.
+```
+python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/append-to-daily-log.py \
+  --target trusted \
+  --line "- HH:MM UTC [chat-name] — what happened"
+```
+
+The helper auto-creates the daily file with `# Daily Summary — YYYY-MM-DD` header on first write and emits `{"path": ..., "appended_lines": N, "final_line_count": M, "monotonic": bool}` on stdout. `monotonic: false` (with a stderr note) means the new entry's `HH:MM` is earlier than the existing tail — flagged for the caller; the append still happens because clock skew between containers is normal and dropping entries would lose information.
+
+Skip the append entirely for pure heartbeats with nothing to report or trivial acknowledgements.
 
 ### Saving permanent facts
 
