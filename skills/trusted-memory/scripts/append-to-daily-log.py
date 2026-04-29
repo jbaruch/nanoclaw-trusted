@@ -132,29 +132,43 @@ def atomic_write_text(path: Path, content: str, default_mode: int = 0o644) -> No
 
 def last_entry_minutes(existing: str) -> Optional[int]:
     """Return the `HH*60+MM` of the last `- HH:MM UTC` bullet in the
-    file, or None if no such entry exists. Used for the monotonic
-    check — we compare to the *last* entry, not all entries, so we
-    don't slow down on long files."""
-    last = None
-    for line in existing.splitlines():
-        m = ENTRY_PREFIX_RE.match(line)
-        if m:
-            last = int(m.group(1)) * 60 + int(m.group(2))
-    return last
-
-
-def first_entry_minutes(lines: list[str]) -> Optional[int]:
-    """First `HH*60+MM` from the new lines, for the monotonic compare."""
-    for line in lines:
+    file, or None if no such entry exists. Iterates from the END so
+    long daily logs short-circuit on the first match instead of
+    scanning the whole file."""
+    for line in reversed(existing.splitlines()):
         m = ENTRY_PREFIX_RE.match(line)
         if m:
             return int(m.group(1)) * 60 + int(m.group(2))
     return None
 
 
-def append_lines(
-    daily_file: Path, new_lines: list[str], date: dt.date
-) -> dict:
+def min_entry_minutes(lines: list[str]) -> Optional[int]:
+    """Smallest `HH*60+MM` across all bullet lines in the input batch.
+
+    Used for the monotonic check: a batch is non-monotonic if ANY
+    of its entries is earlier than the existing tail, not just the
+    first one. The earlier `first_entry_minutes` only checked the
+    first matching line, so a `[09:00, 02:54]` batch appended after
+    `08:00` would have been reported `monotonic: true`.
+    """
+    earliest: Optional[int] = None
+    for line in lines:
+        m = ENTRY_PREFIX_RE.match(line)
+        if m:
+            mins = int(m.group(1)) * 60 + int(m.group(2))
+            if earliest is None or mins < earliest:
+                earliest = mins
+    return earliest
+
+
+def line_count(text: str) -> int:
+    """Length-in-lines of `text`. Uses `splitlines()` so a final line
+    without a trailing newline still counts — `text.count("\\n")`
+    would undercount by one in that (rare but legal) shape."""
+    return len(text.splitlines())
+
+
+def append_lines(daily_file: Path, new_lines: list[str], date: dt.date) -> dict:
     if not new_lines:
         # No-op append still reports current state so the caller can
         # log a deterministic outcome — exit 0 with appended=0.
@@ -162,7 +176,7 @@ def append_lines(
         return {
             "path": str(daily_file),
             "appended_lines": 0,
-            "final_line_count": existing.count("\n"),
+            "final_line_count": line_count(existing),
             "monotonic": True,
         }
 
@@ -173,9 +187,9 @@ def append_lines(
         existing = DAILY_HEADER_TEMPLATE.format(date=date.strftime("%Y-%m-%d"))
         prior_last = None
 
-    first_new = first_entry_minutes(new_lines)
+    earliest_new = min_entry_minutes(new_lines)
     monotonic = True
-    if prior_last is not None and first_new is not None and first_new < prior_last:
+    if prior_last is not None and earliest_new is not None and earliest_new < prior_last:
         monotonic = False
 
     # Ensure the existing content ends with exactly one newline before
@@ -194,7 +208,7 @@ def append_lines(
     return {
         "path": str(daily_file),
         "appended_lines": len(new_lines),
-        "final_line_count": new_content.count("\n"),
+        "final_line_count": line_count(new_content),
         "monotonic": monotonic,
     }
 
@@ -256,6 +270,14 @@ def main() -> None:
     except OSError as exc:
         sys.stderr.write(f"append-to-daily-log: cannot read --lines-file: {exc}\n")
         sys.exit(2)
+    except UnicodeDecodeError as exc:
+        # Caught alongside OSError: a non-UTF-8 --lines-file would
+        # otherwise crash with a traceback + rc=1, violating the
+        # "exit 2 on hard error / stdout clean" contract.
+        sys.stderr.write(
+            f"append-to-daily-log: --lines-file is not valid UTF-8: {exc}\n"
+        )
+        sys.exit(2)
 
     try:
         lock_f = acquire_lock(lock_path)
@@ -266,6 +288,14 @@ def main() -> None:
     try:
         try:
             result = append_lines(daily_file, new_lines, date)
+        except UnicodeDecodeError as exc:
+            # Same contract guard for the daily file: a manually-edited
+            # daily with non-UTF-8 bytes shouldn't traceback out.
+            sys.stderr.write(
+                f"append-to-daily-log: existing daily file {daily_file} is "
+                f"not valid UTF-8: {exc}\n"
+            )
+            sys.exit(2)
         except OSError as exc:
             sys.stderr.write(f"append-to-daily-log: write failed for {daily_file}: {exc}\n")
             sys.exit(2)

@@ -276,6 +276,81 @@ def test_unreadable_lines_file_exits_2_with_diagnostic(group_dir, tmp_path):
     assert "cannot read --lines-file" in proc.stderr
 
 
+def test_non_utf8_lines_file_exits_2_not_traceback(group_dir, tmp_path):
+    # `--lines-file` advertises UTF-8 input. A binary blob caught the
+    # bare `except OSError` only, which let UnicodeDecodeError bubble
+    # up as a traceback + rc=1, violating the "exit 2 / stdout clean"
+    # contract.
+    bad = tmp_path / "binary.txt"
+    bad.write_bytes(b"\xff\xfe not valid utf-8")
+    proc = _run_cli(
+        [
+            "--target",
+            "group",
+            "--group-daily",
+            str(group_dir),
+            "--date",
+            "2026-04-29",
+            "--lines-file",
+            str(bad),
+        ]
+    )
+    assert proc.returncode == 2
+    assert "not valid UTF-8" in proc.stderr
+    assert proc.stdout == ""
+
+
+def test_non_utf8_existing_daily_file_exits_2_not_traceback(group_dir):
+    # Manual edit / corruption of the daily file with non-UTF-8 bytes
+    # should produce a clean exit 2 rather than a traceback.
+    daily = group_dir / "2026-04-29.md"
+    daily.write_bytes(b"\xff\xfe corrupt header")
+    proc = _run_cli(
+        [
+            "--target",
+            "group",
+            "--group-daily",
+            str(group_dir),
+            "--date",
+            "2026-04-29",
+            "--line",
+            "- 09:00 UTC — never appended",
+        ]
+    )
+    assert proc.returncode == 2
+    assert "not valid UTF-8" in proc.stderr
+    assert proc.stdout == ""
+
+
+def test_non_monotonic_detected_when_later_line_in_batch_is_earliest(group_dir, tmp_path):
+    # Existing tail is 09:00; batch is [09:30, 02:54] — the second
+    # entry is earlier than the tail. Pre-fix code only checked the
+    # first batch entry and reported `monotonic: true`; post-fix
+    # checks the earliest entry and flags it.
+    daily = group_dir / "2026-04-29.md"
+    daily.write_text("# Daily Summary — 2026-04-29\n- 09:00 UTC — anchor\n")
+
+    lines_file = tmp_path / "batch.txt"
+    lines_file.write_text("- 09:30 UTC — first new\n- 02:54 UTC — earliest in batch\n")
+
+    proc = _run_cli(
+        [
+            "--target",
+            "group",
+            "--group-daily",
+            str(group_dir),
+            "--date",
+            "2026-04-29",
+            "--lines-file",
+            str(lines_file),
+        ]
+    )
+    assert proc.returncode == 0
+    payload = json.loads(proc.stdout)
+    assert payload["monotonic"] is False
+    assert "non-monotonic" in proc.stderr
+
+
 def test_default_date_is_today_utc(group_dir, monkeypatch):
     # Direct in-process call (not subprocess) so we can monkeypatch
     # the helper's `utc_today` and assert default-date behavior
@@ -325,13 +400,30 @@ def test_last_entry_minutes_returns_none_when_no_bullets(helper):
     assert helper.last_entry_minutes("# Daily Summary — 2026-04-29\n") is None
 
 
-def test_first_entry_minutes_finds_first_well_formed(helper):
+def test_min_entry_minutes_finds_earliest_in_batch(helper):
+    # Out-of-order batch — the monotonic check needs the earliest
+    # entry, not the first one in input order. A `[09:00, 02:54]`
+    # batch appended after `08:00` is non-monotonic because of the
+    # second entry; checking only the first would miss it.
     lines = [
         "freeform line",
-        "- 08:00 UTC — first matching",
-        "- 09:00 UTC — second matching",
+        "- 09:00 UTC — late",
+        "- 02:54 UTC — early — earliest in batch",
+        "- 11:00 UTC — even later",
     ]
-    assert helper.first_entry_minutes(lines) == 8 * 60
+    assert helper.min_entry_minutes(lines) == 2 * 60 + 54
+
+
+def test_min_entry_minutes_returns_none_when_no_bullets(helper):
+    assert helper.min_entry_minutes(["freeform", ""]) is None
+
+
+def test_line_count_handles_no_trailing_newline(helper):
+    # Manually-edited daily files sometimes lack the trailing
+    # newline; line_count must still report the legal final line.
+    assert helper.line_count("a\nb\nc") == 3
+    assert helper.line_count("a\nb\nc\n") == 3
+    assert helper.line_count("") == 0
 
 
 def test_atomic_write_preserves_existing_mode(helper, tmp_path):
