@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Skills — `session-state.json` SQLite migration (tile-side, `jbaruch/nanoclaw#298`)
+
+- **`trusted-memory/scripts/register-session.py` — rewrite to UPSERT `trusted_sessions` + `trusted_session_singleton` rows in SQLite.** The two new tables landed in the orchestrator's state-006 migration. Per-session UPSERT keyed on `session_name` (PK) + per-id UPSERT keyed on `id=1` (singleton CHECK) make sibling-row clobber impossible by construction. The JSON-era `fcntl.LOCK_EX` + tempfile + fsync + chmod-preserve + `os.replace` ceremony retires for both writes; only the `/tmp/session_bootstrapped` sentinel remains file-based (it's a per-container, non-shared bootstrap marker — SQLite isn't the right tool). The singleton UPSERT deliberately omits `pending_response` and `muted_threads` from the UPDATE clause — those columns belong to the default-session writer; pre-existing values survive register-session calls.
+- **`trusted-memory/state-schema.md` — rewrite per `coding-policy: stateful-artifacts`.** Two-table contract: `trusted_sessions` (per-session metadata, PK on `session_name`) + `trusted_session_singleton` (CHECK(id=1) singleton with the back-compat `active_session_id` mirror and the JSON-blob payload columns owned by the default-session writer). Writer/reader contracts for the UPSERT + the `last_seen` stamp, concurrency rationale (PK + WAL retire the `session-state.json.lock` sidecar), bootstrap-sentinel carve-out, migration policy.
+- **`trusted-memory/SKILL.md` Step 7** — prose now describes the UPSERT into the two SQLite tables instead of the JSON envelope write. The "atomic tempfile+fsync+os.replace" ceremony language retires; the DB-write + sentinel-write transactionality boundary is preserved (DB row updated even if the sentinel write fails — same recovery path as before).
+- **`trusted-memory/SKILL.md` Bootstrap Error Handling** — split the JSON-era "missing / corrupt session-state.json" rows into two SQL-era rows: "no `trusted_sessions` row yet" (recoverable, next call establishes) vs "table missing / DB unreachable" (hard failure, points at orchestrator state-006 migration not having run).
+
+The admin-tile's heartbeat-precheck.py last-seen stamp + heartbeat/SKILL.md Hard Rules update for `trusted_sessions` / `trusted_session_singleton` ships in a separate PR (cross-tile work for `#298` requires one PR per repo).
+
+### Tests
+
+- **`tests/test_register_session.py` (rewrite)** — 6 cases pinning the SQLite contract: full roundtrip with both tables UPSERTed, missing $CLAUDE_SESSION_ID skips sentinel, empty `sessions` table records `session_id = NULL`, sibling session rows untouched (the JSON-era cross-session clobber bug retires by construction with PK on session_name), singleton UPSERT preserves `pending_response` / `muted_threads` (default-session writer's columns), DB unreachable → exit 1.
+
 ### Skills
 
 - **`system-status` SKILL.md content rewrite — finish #65** (`jbaruch/nanoclaw-admin#65`) — PR #14 (`d35ae5d`) shipped the directory rename, `tile.json` update, the new `scripts/system-status-checks.py`, and the test suite, but the new `skills/system-status/SKILL.md` was created with the **legacy content** verbatim — same `name: check-system-health` frontmatter, same three `python3 -c "..."` inline blocks the rewrite was supposed to remove. The CHANGELOG entry below describes the rewrite that PR #14 intended; this PR actually performs it: frontmatter `name` → `system-status`, body collapsed to Step 1 (run `system-status-checks.py`) / Step 2 (act on `alerts`), description tightened to read-only-trusted-tier scope, dismiss-mechanism section dropped (admin's domain), explicit "What this skill is NOT" section added. `tessl skill review skills/system-status` reports 100%.

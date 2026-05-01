@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Write session metadata into session-state.json and mark bootstrap done.
+"""Write session metadata into the trusted_sessions / trusted_session_
+singleton SQLite tables and mark bootstrap done.
 
 Usage:
     register-session.py
@@ -11,38 +12,40 @@ Reads:
     - Current session ID from `$CLAUDE_SESSION_ID` (for the bootstrap
       sentinel).
 
-Writes (both atomically, tempfile + fsync + os.replace):
-    - `/workspace/group/session-state.json` — updates
-      `sessions.<session_name>` with `{started, epoch, session_id,
-      last_seen}` and mirrors `session_id` at the top level for
-      back-compat.
-    - `/tmp/session_bootstrapped` — sentinel containing the current
+Writes (single SQLite transaction + sentinel file):
+    - `trusted_sessions` row keyed on `session_name` (UPSERT) with
+      `{started, epoch, session_id, last_seen}`.
+    - `trusted_session_singleton` (id=1, UPSERT) with
+      `active_session_id` mirrored at the top level for back-compat.
+    - `/tmp/session_bootstrapped` sentinel containing the current
       CLAUDE_SESSION_ID so `needs-bootstrap.py` reports "done" on
       subsequent runs. NOT written when CLAUDE_SESSION_ID is missing
       or empty — an empty sentinel would match an empty env on the
       next run and cause bootstrap to be skipped forever.
 
+Replaces the JSON-era `session-state.json` envelope read-modify-write
+that this script defended with `fcntl.LOCK_EX` + tempfile + fsync +
+`os.replace`. The PK on `session_name` makes per-session writes
+atomic — a concurrent writer for `default` and `maintenance` cannot
+clobber each other's columns. Sibling readers (heartbeat-precheck's
+last_seen stamp, check-email's seen-ids append) target their own
+tables; cross-writer interference is impossible by construction.
+
 Exit codes:
     0 — success (state written; sentinel skipped is still success
         when CLAUDE_SESSION_ID is empty/unset, with a stderr note)
-    1 — state file read/write failure
+    1 — DB / SQL / sentinel write failure (diagnostic on stderr)
 
-Note on sqlite behavior: the previous inline block would have raised
-on a missing messages.db or missing `sessions` table. This script
-intentionally catches `sqlite3.Error` broadly and treats it as
-`session_id=None` with a stderr note — a deliberate relaxation,
-not a behavior-preserving port, because bootstrap shouldn't hard-
-crash the whole memory-load flow when the DB is temporarily
-unreadable (locked, early-boot, etc.). The back-compat mirror still
-records `None`, which downstream consumers tolerate.
-
-Concurrency: state-file writes use an fcntl.LOCK_EX on
-`<STATE_PATH>.lock` around the read-modify-write cycle. heartbeat-
-precheck.py and check-email writers use the same lock file; without
-coordination a concurrent `last_seen` stamp or `pending_response`
-update can clobber this script's `sessions.<name>` write.
+Note on sqlite behavior: the script catches `sqlite3.Error` from the
+`sessions` read broadly and treats it as `session_id=None` — a
+deliberate relaxation, not a behavior-preserving port, because
+bootstrap shouldn't hard-crash the whole memory-load flow when the
+DB is temporarily unreadable (locked, early-boot, etc.). The trusted
+state UPSERT below uses the same DB connection and DOES exit 1 on
+failure — that's the load-bearing write.
 """
-import fcntl
+from __future__ import annotations
+
 import json
 import os
 import sqlite3
@@ -58,50 +61,31 @@ from typing import Optional
 # the bootstrap flow responsive while still riding out short contention.
 MESSAGES_DB_TIMEOUT_SECONDS = 10
 
-MESSAGES_DB = "/workspace/store/messages.db"
-STATE_PATH = "/workspace/group/session-state.json"
-STATE_LOCK_PATH = STATE_PATH + ".lock"
+DB_PATH = os.environ.get("ORDERS_DB_PATH", "/workspace/store/messages.db")
 SENTINEL = "/tmp/session_bootstrapped"
 
-# Bumped when the on-disk shape of session-state.json changes. v1 is the
-# current canonical shape (top-level `schema_version` + `sessions.<name>`
-# subtree + back-compat top-level `session_id`). Files written before
-# this field existed are read-tolerated below and silently upgraded to
-# v1 on the next write — owner-skill migration per
-# `jbaruch/coding-policy: stateful-artifacts`.
-STATE_SCHEMA_VERSION = 1
+# Bumped when the row shapes change; coordinated with state-006-trusted-
+# session-state.ts upstream.
+TRUSTED_SCHEMA_VERSION = 1
 
 
-def read_session_id_from_db() -> Optional[str]:
+def read_session_id_from_db(conn: sqlite3.Connection) -> Optional[str]:
+    """Best-effort read of the orchestrator's current session_id."""
     try:
-        conn = sqlite3.connect(MESSAGES_DB, timeout=MESSAGES_DB_TIMEOUT_SECONDS)
-        try:
-            row = conn.execute(
-                "SELECT session_id FROM sessions LIMIT 1"
-            ).fetchone()
-        finally:
-            conn.close()
+        row = conn.execute("SELECT session_id FROM sessions LIMIT 1").fetchone()
         return row[0] if row else None
     except sqlite3.Error as e:
         print(
-            f"register-session: cannot read session_id from {MESSAGES_DB}: {e}",
+            f"register-session: cannot read session_id from sessions table: {e}",
             file=sys.stderr,
         )
         return None
 
 
 def atomic_write_text(path: str, content: str, default_mode: int = 0o644) -> None:
-    """Atomically replace `path`'s contents with `content`.
-
-    Tempfile in the same directory → write → flush → fsync → chmod (to
-    the target's existing mode, or `default_mode` if creating fresh) →
-    os.replace. Cleans up the tempfile on any failure so a crash mid-
-    write doesn't leave a stray `*.tmp` orphan next to the target.
-
-    The chmod step matters: NamedTemporaryFile defaults to 0600, which
-    would silently narrow shared state files (e.g. /workspace/group/*)
-    on the first write unless preserved.
-    """
+    """Atomically replace `path`'s contents with `content`. Used only
+    for the `/tmp/session_bootstrapped` sentinel — the trusted state
+    is now in SQLite and uses a SQL transaction, not a file."""
     dir_ = os.path.dirname(path) or "."
     try:
         target_mode = os.stat(path).st_mode & 0o777
@@ -131,105 +115,60 @@ def atomic_write_text(path: str, content: str, default_mode: int = 0o644) -> Non
                 )
 
 
-def atomic_write_json(path: str, data: dict) -> None:
-    atomic_write_text(path, json.dumps(data, indent=2))
-
-
-def main() -> None:
-    session_id = read_session_id_from_db()
+def main() -> int:
     session_name = os.environ.get("NANOCLAW_SESSION_NAME", "default")
     claude_session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    now = datetime.now(timezone.utc)
+    now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    epoch = int(time.time())
 
-    # Hold LOCK_EX on STATE_LOCK_PATH for the entire read-modify-write
-    # cycle. Other writers on this file — heartbeat-precheck's
-    # last_seen stamp, check-email's seen_email_ids append, default-
-    # session pending_response/muted_threads updates — use (or will
-    # use) the same lock file. Without coordination, our sessions.<name>
-    # write can clobber a concurrent last_seen update, or vice versa.
-    # heartbeat-precheck.py documents the shared-lock convention.
+    conn = None
+    session_id: Optional[str] = None
     try:
-        lock_f = open(STATE_LOCK_PATH, "a+")
-    except OSError as e:
+        conn = sqlite3.connect(DB_PATH, timeout=MESSAGES_DB_TIMEOUT_SECONDS)
+        session_id = read_session_id_from_db(conn)
+
+        with conn:
+            # UPSERT the per-session row. PK on session_name makes this
+            # write atomic; sibling sessions (e.g. 'default' vs
+            # 'maintenance') are physically untouched.
+            conn.execute(
+                """
+                INSERT INTO trusted_sessions
+                  (session_name, session_id, started, epoch, last_seen)
+                  VALUES (?, ?, ?, ?, ?)
+                  ON CONFLICT(session_name) DO UPDATE SET
+                    session_id = excluded.session_id,
+                    started    = excluded.started,
+                    epoch      = excluded.epoch,
+                    last_seen  = excluded.last_seen
+                """,
+                (session_name, session_id, now_iso, epoch, now_iso),
+            )
+            # UPSERT the singleton (id=1) with the back-compat
+            # `active_session_id` mirror. The CHECK(id=1) constraint
+            # makes the table genuinely single-row. `pending_response`
+            # and `muted_threads` are NOT in the column list — the
+            # default-session writer owns those columns; preserve any
+            # value already there.
+            conn.execute(
+                """
+                INSERT INTO trusted_session_singleton (id, active_session_id)
+                  VALUES (1, ?)
+                  ON CONFLICT(id) DO UPDATE SET
+                    active_session_id = excluded.active_session_id
+                """,
+                (session_id,),
+            )
+    except sqlite3.Error as e:
         print(
-            f"register-session: cannot open lock file {STATE_LOCK_PATH}: {e}",
+            f"register-session: SQLite error writing trusted state at {DB_PATH}: {e}",
             file=sys.stderr,
         )
-        sys.exit(1)
-
-    try:
-        fcntl.flock(lock_f.fileno(), fcntl.LOCK_EX)
-
-        try:
-            with open(STATE_PATH) as f:
-                state = json.load(f)
-        except FileNotFoundError:
-            state = {}
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            # UnicodeDecodeError covers non-UTF-8 bytes (corruption/manual
-            # edit); treated like malformed JSON — start fresh with a
-            # stderr note rather than letting a traceback bubble up.
-            print(
-                f"register-session: state file malformed at {STATE_PATH}: {e}; starting fresh",
-                file=sys.stderr,
-            )
-            state = {}
-        except OSError as e:
-            # PermissionError, EIO, etc. — docstring promises exit 1 on
-            # any read failure.
-            print(
-                f"register-session: state file read failed at {STATE_PATH}: {e}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        if not isinstance(state, dict):
-            print(
-                f"register-session: state file at {STATE_PATH} contained non-object JSON (type {type(state).__name__}); starting fresh",
-                file=sys.stderr,
-            )
-            state = {}
-
-        # setdefault("sessions", {}) doesn't guard against an existing but
-        # non-dict value (e.g. list/string) — state["sessions"][name] = ...
-        # below would crash with TypeError. Reset to {} with a stderr note
-        # if the shape is wrong.
-        if not isinstance(state.get("sessions"), dict):
-            if "sessions" in state:
-                print(
-                    f"register-session: state.sessions was not an object (type {type(state.get('sessions')).__name__}); resetting",
-                    file=sys.stderr,
-                )
-            state["sessions"] = {}
-        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        state["sessions"][session_name] = {
-            "started": now_iso,
-            "epoch": int(time.time()),
-            "session_id": session_id,
-            "last_seen": now_iso,
-        }
-        state["session_id"] = session_id  # back-compat; see PR #55
-        # Stamp schema_version last so it always reflects what this writer
-        # produces, even when starting from an unversioned legacy file.
-        state["schema_version"] = STATE_SCHEMA_VERSION
-
-        try:
-            atomic_write_json(STATE_PATH, state)
-        except OSError as e:
-            print(
-                f"register-session: failed to write {STATE_PATH}: {e}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+        return 1
     finally:
-        # Lock released automatically when lock_f closes, but be
-        # explicit so the intent is obvious to readers.
-        try:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            # Already released or fd invalidated — lock_f.close() below
-            # handles the rest. Nothing actionable; skip the stderr.
-            pass
-        lock_f.close()
+        if conn is not None:
+            conn.close()
 
     # Refuse to write an empty sentinel. An empty string would match the
     # default `$CLAUDE_SESSION_ID` fallback in needs-bootstrap.py
@@ -243,7 +182,7 @@ def main() -> None:
             file=sys.stderr,
         )
         emit_status(session_id, session_name, wrote_sentinel=False)
-        return
+        return 0
 
     try:
         atomic_write_text(SENTINEL, claude_session_id)
@@ -252,9 +191,10 @@ def main() -> None:
             f"register-session: failed to write sentinel {SENTINEL}: {e}",
             file=sys.stderr,
         )
-        sys.exit(1)
+        return 1
 
     emit_status(session_id, session_name, wrote_sentinel=True)
+    return 0
 
 
 def emit_status(
@@ -272,7 +212,7 @@ def emit_status(
             {
                 "session_id": session_id,
                 "session_name": session_name,
-                "schema_version": STATE_SCHEMA_VERSION,
+                "schema_version": TRUSTED_SCHEMA_VERSION,
                 "wrote_state": True,
                 "wrote_sentinel": wrote_sentinel,
             }
@@ -281,4 +221,4 @@ def emit_status(
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

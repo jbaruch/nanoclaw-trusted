@@ -108,21 +108,21 @@ If bootstrap IS needed → run all steps below in order:
 4. Read the most recent 2 files from `/workspace/group/memory/weekly/` as summaries (older context).
 5. Read the most recent 2 files from `/workspace/trusted/memory/daily/` (cross-group shared memory).
 6. Read `/workspace/trusted/highlights.md` if it exists (major long-term events).
-7. Write session metadata into `session-state.json` under a per-session subtree. See `state-schema.md` for the on-disk shape and the legacy back-compat field. Current-session stamping:
+7. Write session metadata into the `trusted_sessions` + `trusted_session_singleton` SQLite tables in `/workspace/store/messages.db`. See `state-schema.md` for the column-level contract. Current-session stamping:
 
 ```
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py
 ```
 
-Reads `session_id` from `/workspace/store/messages.db`, stamps `sessions.<$NANOCLAW_SESSION_NAME>` and top-level `session_id` in `/workspace/group/session-state.json` (with `schema_version: 1` per `state-schema.md`), and writes the bootstrap sentinel at `/tmp/session_bootstrapped` with `$CLAUDE_SESSION_ID`. Both writes are individually atomic (tempfile + fsync + chmod-to-preserve-mode + os.replace), but the two-file sequence is NOT transactional: if the sentinel write fails after the state write succeeded, the state file is already updated and the next run will still re-bootstrap (because the sentinel is missing/stale). Steps 7 and the old Step 8 "write the sentinel" are both handled by this single invocation. Emits a single-line JSON status to stdout (`{"session_id": ..., "session_name": ..., "schema_version": 1, "wrote_state": true, "wrote_sentinel": <bool>}`); `wrote_sentinel` is `false` when `$CLAUDE_SESSION_ID` is missing/empty (deliberate skip per the sentinel-empty guard).
+Reads `session_id` from `messages.db`'s `sessions` table; UPSERTs the `trusted_sessions` row keyed on `$NANOCLAW_SESSION_NAME`; UPSERTs the `trusted_session_singleton` row (id=1) for the back-compat `active_session_id` mirror — both writes in a single SQL transaction. Per-session PK + per-id PK make sibling-row clobber impossible by construction; the JSON-era `LOCK_EX` + tempfile + fsync + `os.replace` ceremony retires. Then writes the bootstrap sentinel at `/tmp/session_bootstrapped` with `$CLAUDE_SESSION_ID` (still file-based — per-container, not shared state). The DB write and the sentinel write are NOT transactional together: if the sentinel write fails after the DB transaction committed, the DB row is already updated and the next run will still re-bootstrap (because the sentinel is missing/stale). Steps 7 and the old Step 8 "write the sentinel" are both handled by this single invocation. Emits a single-line JSON status to stdout (`{"session_id": ..., "session_name": ..., "schema_version": 1, "wrote_state": true, "wrote_sentinel": <bool>}`); `wrote_sentinel` is `false` when `$CLAUDE_SESSION_ID` is missing/empty (deliberate skip per the sentinel-empty guard).
 
 Total context budget for memory: ~3000 tokens. Summarize large files before loading.
 
 ### Bootstrap Error Handling
 
 - **Missing files**: Skip silently and continue. Do not treat absence as an error.
-- **Missing `session-state.json`**: Treat as a fresh session — proceed through all steps and create the file at step 7.
-- **Corrupt or unreadable `session-state.json`**: Treat as missing — overwrite with the current session ID after completing bootstrap.
+- **No `trusted_sessions` row yet (fresh DB, table present)**: Treat as a fresh session — proceed through all steps; Step 7's UPSERT establishes the row.
+- **`trusted_sessions` table missing / DB unreachable**: Hard failure — `register-session.py` exits 1, the bootstrap doesn't complete. Points at the orchestrator's state-006 migration not having run; verify the DB exists and has the `trusted_sessions` / `trusted_session_singleton` tables.
 - **Missing or empty daily/weekly directories**: Skip those steps and proceed. Note in the first rolling memory update that this is a new memory store.
 
 ## Rolling Memory Updates
