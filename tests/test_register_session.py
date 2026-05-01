@@ -218,4 +218,8 @@ def test_db_unreachable_exits_1(register_session, monkeypatch, capsys):
 
     rc, _, err = _run(module, capsys)
     assert rc == 1
-    assert "SQLite error" in err or "trusted" in err.lower()
+    # Accept either "DB not found" (file-existence pre-check) or
+    # "SQLite error ..." (would-be tables-missing branch if the file
+    # somehow exists but is malformed). Both are exit-1 hard failures
+    # pointing at the orchestrator's state-006 migration not running.
+    assert "DB not found" in err or "SQLite error" in err or "trusted" in err.lower()

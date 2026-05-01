@@ -122,6 +122,20 @@ def main() -> int:
     now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
     epoch = int(time.time())
 
+    # Hard-fail when the orchestrator DB is absent rather than letting
+    # `sqlite3.connect()` create an empty file (which would then error
+    # out on missing tables and leave a stray DB file behind). A
+    # missing DB points at the orchestrator's state-006 migration not
+    # having run; the operator needs that visible, not masked.
+    if not os.path.exists(DB_PATH):
+        print(
+            f"register-session: orchestrator DB not found at {DB_PATH}. "
+            "Verify the database file exists; if missing, the state-006 "
+            "migration may not have run.",
+            file=sys.stderr,
+        )
+        return 1
+
     conn = None
     session_id: Optional[str] = None
     try:
@@ -131,34 +145,50 @@ def main() -> int:
         with conn:
             # UPSERT the per-session row. PK on session_name makes this
             # write atomic; sibling sessions (e.g. 'default' vs
-            # 'maintenance') are physically untouched.
+            # 'maintenance') are physically untouched. `schema_version`
+            # is written on both insert and update so a future bump of
+            # TRUSTED_SCHEMA_VERSION self-heals existing rows on the
+            # next register-session call (the alternative — only on
+            # insert — would leave older rows at the prior version
+            # forever, defeating the "owner bumps schema_version"
+            # contract in state-schema.md).
             conn.execute(
                 """
                 INSERT INTO trusted_sessions
-                  (session_name, session_id, started, epoch, last_seen)
-                  VALUES (?, ?, ?, ?, ?)
+                  (session_name, session_id, started, epoch, last_seen, schema_version)
+                  VALUES (?, ?, ?, ?, ?, ?)
                   ON CONFLICT(session_name) DO UPDATE SET
-                    session_id = excluded.session_id,
-                    started    = excluded.started,
-                    epoch      = excluded.epoch,
-                    last_seen  = excluded.last_seen
+                    session_id     = excluded.session_id,
+                    started        = excluded.started,
+                    epoch          = excluded.epoch,
+                    last_seen      = excluded.last_seen,
+                    schema_version = excluded.schema_version
                 """,
-                (session_name, session_id, now_iso, epoch, now_iso),
+                (
+                    session_name,
+                    session_id,
+                    now_iso,
+                    epoch,
+                    now_iso,
+                    TRUSTED_SCHEMA_VERSION,
+                ),
             )
             # UPSERT the singleton (id=1) with the back-compat
             # `active_session_id` mirror. The CHECK(id=1) constraint
             # makes the table genuinely single-row. `pending_response`
             # and `muted_threads` are NOT in the column list — the
             # default-session writer owns those columns; preserve any
-            # value already there.
+            # value already there. `schema_version` self-heals via the
+            # same pattern as `trusted_sessions` above.
             conn.execute(
                 """
-                INSERT INTO trusted_session_singleton (id, active_session_id)
-                  VALUES (1, ?)
+                INSERT INTO trusted_session_singleton (id, active_session_id, schema_version)
+                  VALUES (1, ?, ?)
                   ON CONFLICT(id) DO UPDATE SET
-                    active_session_id = excluded.active_session_id
+                    active_session_id = excluded.active_session_id,
+                    schema_version    = excluded.schema_version
                 """,
-                (session_id,),
+                (session_id, TRUSTED_SCHEMA_VERSION),
             )
     except sqlite3.Error as e:
         print(
@@ -191,6 +221,11 @@ def main() -> int:
             f"register-session: failed to write sentinel {SENTINEL}: {e}",
             file=sys.stderr,
         )
+        # The DB transaction has already committed — emit status
+        # before exiting so callers expecting structured stdout can
+        # still see what was registered. The exit code remains the
+        # authoritative success signal.
+        emit_status(session_id, session_name, wrote_sentinel=False)
         return 1
 
     emit_status(session_id, session_name, wrote_sentinel=True)
