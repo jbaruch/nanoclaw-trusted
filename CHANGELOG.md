@@ -4,7 +4,7 @@
 
 ### Rules
 
-- **`skill-dependencies.md` — drop `check-unanswered` heartbeat step** (`jbaruch/nanoclaw-core#38`). The heartbeat-flow list named `check-unanswered` as Step 0.7. With the skill removed in `jbaruch/nanoclaw-core#38`, the bullet is gone; the surrounding tz-sync / missed-tasks / heartbeat-checks bullets are unchanged.
+- **`skill-dependencies` — drop `check-unanswered` heartbeat step** (`jbaruch/nanoclaw-core#38`). The heartbeat-flow list in `rules/skill-dependencies.md` named `check-unanswered` as Step 0.7. With the skill removed in `jbaruch/nanoclaw-core#38`, the bullet is gone; the surrounding tz-sync / missed-tasks / heartbeat-checks bullets are unchanged.
 
 ### Skills
 
