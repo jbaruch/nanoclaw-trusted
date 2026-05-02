@@ -9,7 +9,7 @@ Companion to the abstract dual-handle invariant in the `jbaruch/nanoclaw-core` t
 ## Why Record It
 
 - A short concrete failure makes the abstract rule easier to recognise in the wild — the moment a message lists the trigger AND the `@username` separately, this is the pattern to remember
-- The runtime identity preamble (`buildIdentityPreamble` injected from `ASSISTANT_NAME` / `ASSISTANT_USERNAME` env vars) prevents the *identity-theft* form of this confusion (agent claiming an example handle as its own); it does not stop the *role-splitting* form (agent treating its two valid handles as two addressees). The role-splitting failure is what the rule and this incident document
+- The runtime identity preamble (`buildIdentityPreamble` in the `jbaruch/nanoclaw-public` repo, injected from `ASSISTANT_NAME` / `ASSISTANT_USERNAME` env vars) prevents the *identity-theft* form of this confusion (agent claiming an example handle as its own); it does not stop the *role-splitting* form (agent treating its two valid handles as two addressees). The role-splitting failure is what the rule and this incident document
 
 ## Reference Incident — 2026-04-27
 
