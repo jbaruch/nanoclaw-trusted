@@ -292,18 +292,45 @@ def test_concurrent_writers_serialise_via_lock(tmp_path):
         assert line in content, f"missing {line!r} — concurrent clobber"
 
 
-def test_emits_single_line_json(append_module, capsys):
-    module, _group_dir, _ = append_module
-    rc, payload, _err = _run(
-        module,
-        ["--target", "group", "--date", "2026-05-01", "--line", "- 09:00 UTC — x"],
-        capsys,
+def test_emits_single_line_json(tmp_path):
+    """Run via subprocess so we observe the actual stdout bytes
+    instead of going through capsys-after-main(). The single-line
+    contract is what callers (and CI step output parsers) depend on
+    — pretty-printed JSON would break the parsing pattern."""
+    daily_dir = tmp_path / "group/memory/daily"
+    daily_dir.mkdir(parents=True, exist_ok=True)
+
+    wrapper = f"""
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('m', {str(SCRIPT_PATH)!r})
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+m.GROUP_DAILY_DIR = {str(daily_dir)!r}
+m.TRUSTED_DAILY_DIR = {str(daily_dir)!r}
+sys.exit(m.main(sys.argv[1:]))
+"""
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            wrapper,
+            "--target",
+            "group",
+            "--date",
+            "2026-05-01",
+            "--line",
+            "- 09:00 UTC — x",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
-    assert rc == 0
-    # Single line — not pretty-printed.
-    captured = capsys.readouterr().out
-    assert captured == ""  # already drained by _run
-    # And payload has the documented fields.
+    assert proc.returncode == 0, f"subprocess failed: {proc.stderr}"
+    # Stdout is exactly one line of JSON with a trailing newline,
+    # nothing more — `print(json.dumps(...))` produces this shape.
+    out_lines = proc.stdout.splitlines()
+    assert len(out_lines) == 1, f"expected 1 line of stdout, got {len(out_lines)}: {proc.stdout!r}"
+    payload = json.loads(out_lines[0])
     for key in ("path", "appended_lines", "final_line_count", "created", "out_of_order"):
         assert key in payload
 

@@ -58,9 +58,11 @@ Exit codes:
        both --line and --lines-file with conflicting content)
 
 Atomic write: tempfile in same directory → flush → fsync → os.replace,
-matching `register-session.atomic_write_text` and
-`append-daily-summary.atomic_write` so file mode is preserved across
-overwrites and a crash mid-write leaves no `*.tmp` orphan.
+matching `register-session.atomic_write_text` so file mode is
+preserved across overwrites. Tempfile cleanup is best-effort on
+handled OSError; an OS-level crash (SIGKILL, OOM) between flush and
+rename can still leave a `.<name>.tmp` orphan that the next call
+would overwrite, since `mkstemp` regenerates the suffix per call.
 
 Lock file: `<daily-file>.lock` is created on demand and never removed
 — per-day file leaks ~0.1 KiB per group per day, far below worth
@@ -152,12 +154,15 @@ def _collect_lines(args, parser) -> List[str]:
     """Resolve `--line`, `--lines-file`, or stdin into the final list.
     Validates non-empty result. Lines are stripped of trailing
     newlines but otherwise unchanged (caller's whitespace is
-    preserved)."""
-    sources_used = sum(1 for x in (args.line, args.lines_file, not sys.stdin.isatty()) if x)
-    # `not sys.stdin.isatty()` is best-effort — under CI / tests stdin
-    # is typically piped, so we only read it when neither flag is
-    # supplied. Mixing flags + stdin would be ambiguous; require
-    # exactly one source.
+    preserved).
+
+    Source precedence: `--line` > `--lines-file` > stdin. The two
+    flags are mutually exclusive (error). When a flag is supplied,
+    stdin is ignored even if piped — that asymmetry is deliberate
+    so a CI runner that always pipes empty stdin doesn't make the
+    flagged invocation ambiguous, but `--line` and `--lines-file`
+    being simultaneously set is genuinely ambiguous and worth an
+    error."""
     if args.line and args.lines_file:
         parser.error("specify --line OR --lines-file, not both (mixing is ambiguous)")
 
@@ -180,10 +185,6 @@ def _collect_lines(args, parser) -> List[str]:
         parser.error(
             "no lines to append — pass --line, --lines-file, or pipe non-empty " "content on stdin"
         )
-    # `sources_used` is informational; the OR/error above already
-    # enforces the contract. Reference it to keep linters from
-    # flagging the unused local.
-    _ = sources_used
     return lines
 
 
