@@ -14,4 +14,4 @@ alwaysApply: true
 
 ## What belongs in nightly-housekeeping
 
-Daily checks that produce a report the owner reads in the morning brief — fetches, state refreshes, summary generation. Examples: YouTube comment checks, GitHub activity summaries, CFP state refresh, email triage. The pre-`#404` pattern was a numbered step in the monolith SKILL.md; post-split (`jbaruch/nanoclaw#404`), the canonical pattern is an independent sub-skill row scheduled at the same cadence — see `docs/skill-execution-order.md` for the registry.
+Daily checks that produce a report the owner reads in the morning brief — fetches, state refreshes, summary generation. Examples: YouTube comment checks, GitHub activity summaries, CFP state refresh, email triage. The pre-`#404` pattern was a numbered step in the monolith SKILL.md; post-split (`jbaruch/nanoclaw#404`), the canonical pattern is an independent sub-skill row scheduled at the same cadence.
