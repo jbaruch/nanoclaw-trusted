@@ -2,7 +2,7 @@
 
 Covers the documented contract:
   - Lock-serialised read-modify-write cycle on the daily file.
-  - File creation with `# Daily Log — YYYY-MM-DD\n\n` header on absent target.
+  - File creation with `# Daily Summary — YYYY-MM-DD\n\n` header on absent target.
   - Lines appended at end-of-file regardless of timestamp ordering.
   - Out-of-order detection: stderr warning + result['out_of_order']=True
     when the first new line's HH:MM is BEFORE the existing file's last
@@ -73,7 +73,7 @@ def test_creates_file_with_header_on_first_call(append_module, capsys):
     daily_file = group_dir / "2026-05-01.md"
     assert daily_file.exists()
     content = daily_file.read_text()
-    assert content.startswith("# Daily Log — 2026-05-01\n\n")
+    assert content.startswith("# Daily Summary — 2026-05-01\n\n")
     assert "- 09:00 UTC — first\n" in content
     assert payload["created"] is True
     assert payload["appended_lines"] == 1
@@ -84,7 +84,7 @@ def test_appends_to_existing_file_without_clobbering(append_module, capsys):
     module, group_dir, _ = append_module
     daily_file = group_dir / "2026-05-01.md"
     daily_file.parent.mkdir(parents=True, exist_ok=True)
-    daily_file.write_text("# Daily Log — 2026-05-01\n\n- 09:00 UTC — earlier entry\n")
+    daily_file.write_text("# Daily Summary — 2026-05-01\n\n- 09:00 UTC — earlier entry\n")
 
     rc, payload, _err = _run(
         module,
@@ -198,7 +198,7 @@ def test_out_of_order_warns_but_appends(append_module, capsys):
     module, group_dir, _ = append_module
     daily_file = group_dir / "2026-05-01.md"
     daily_file.parent.mkdir(parents=True, exist_ok=True)
-    daily_file.write_text("# Daily Log — 2026-05-01\n\n- 14:00 UTC — late\n")
+    daily_file.write_text("# Daily Summary — 2026-05-01\n\n- 14:00 UTC — late\n")
 
     rc, payload, err = _run(
         module,
@@ -218,7 +218,7 @@ def test_file_mode_preserved_across_overwrite(append_module, capsys):
     module, group_dir, _ = append_module
     daily_file = group_dir / "2026-05-01.md"
     daily_file.parent.mkdir(parents=True, exist_ok=True)
-    daily_file.write_text("# Daily Log — 2026-05-01\n\n- 09:00 UTC — x\n")
+    daily_file.write_text("# Daily Summary — 2026-05-01\n\n- 09:00 UTC — x\n")
     os.chmod(daily_file, 0o640)
 
     _run(
@@ -273,7 +273,7 @@ def test_concurrent_writers_serialise_via_lock(tmp_path):
 
     # Pre-create the file so both writers race the read-modify-write
     # path rather than the create path.
-    daily_file.write_text("# Daily Log — 2026-05-01\n\n")
+    daily_file.write_text("# Daily Summary — 2026-05-01\n\n")
 
     a_lines = [f"- 09:{i:02d} UTC — A{i}" for i in range(50)]
     b_lines = [f"- 10:{i:02d} UTC — B{i}" for i in range(50)]
@@ -343,3 +343,118 @@ def test_trusted_target_resolves_to_trusted_path(append_module, capsys):
         capsys,
     )
     assert (trusted_dir / "2026-05-01.md").exists()
+
+
+def test_header_matches_archive_helper_regex(append_module, capsys):
+    """archive-helper.py in nanoclaw-admin/skills/nightly-housekeeping
+    archives both /workspace/group/memory/daily/ AND /workspace/trusted/
+    memory/daily/ via a daily-header regex `^# Daily Summary —
+    \\d{4}-\\d{2}-\\d{2}$`. If our header diverges, archive-helper
+    silently skips the file and daily logs accumulate forever in
+    daily/. Lock the canonical wording in so a future "let's tighten
+    the header style" change can't regress this without breaking the
+    test."""
+    import re
+
+    module, group_dir, _ = append_module
+    _run(
+        module,
+        ["--target", "group", "--date", "2026-05-01", "--line", "- 09:00 UTC — x"],
+        capsys,
+    )
+    content = (group_dir / "2026-05-01.md").read_text()
+    first_line = content.splitlines()[0]
+    archive_helper_regex = re.compile(r"^# Daily Summary — \d{4}-\d{2}-\d{2}\s*$")
+    assert archive_helper_regex.match(first_line), (
+        f"first line {first_line!r} doesn't match archive-helper.py's "
+        f"daily-header regex; archived rotation will skip this file"
+    )
+
+
+def test_group_daily_flag_overrides_default(append_module, tmp_path, capsys):
+    """`--group-daily <path>` redirects the target dir for production
+    callers whose memory tree isn't at the canonical /workspace path
+    (test runners, alternate mount layouts, debugging)."""
+    module, _, _ = append_module
+    custom_dir = tmp_path / "custom-group-daily"
+    rc, payload, _err = _run(
+        module,
+        [
+            "--target",
+            "group",
+            "--date",
+            "2026-05-01",
+            "--group-daily",
+            str(custom_dir),
+            "--line",
+            "- 09:00 UTC — x",
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert (custom_dir / "2026-05-01.md").exists()
+    assert payload["path"] == str(custom_dir / "2026-05-01.md")
+
+
+def test_trusted_daily_flag_overrides_default(append_module, tmp_path, capsys):
+    module, _, _ = append_module
+    custom_dir = tmp_path / "custom-trusted-daily"
+    rc, payload, _err = _run(
+        module,
+        [
+            "--target",
+            "trusted",
+            "--date",
+            "2026-05-01",
+            "--trusted-daily",
+            str(custom_dir),
+            "--line",
+            "- 09:00 UTC [main] — y",
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert (custom_dir / "2026-05-01.md").exists()
+
+
+def test_env_var_override_when_no_flag(monkeypatch, append_module, tmp_path, capsys):
+    """When `--group-daily` is omitted the helper falls back to the
+    `NANOCLAW_GROUP_DAILY` env var. Container deployments mount the
+    memory tree elsewhere via env-var, scripts, or the runtime config."""
+    module, _, _ = append_module
+    env_dir = tmp_path / "env-group-daily"
+    monkeypatch.setenv("NANOCLAW_GROUP_DAILY", str(env_dir))
+    rc, _payload, _err = _run(
+        module,
+        ["--target", "group", "--date", "2026-05-01", "--line", "- 09:00 UTC — z"],
+        capsys,
+    )
+    assert rc == 0
+    assert (env_dir / "2026-05-01.md").exists()
+
+
+def test_flag_wins_over_env_var(monkeypatch, append_module, tmp_path, capsys):
+    """Explicit `--group-daily` takes precedence over the env-var
+    fallback so tests / debugging invocations aren't silently
+    overridden by a sticky env var the operator forgot."""
+    module, _, _ = append_module
+    flag_dir = tmp_path / "flag-wins"
+    env_dir = tmp_path / "env-loses"
+    monkeypatch.setenv("NANOCLAW_GROUP_DAILY", str(env_dir))
+    rc, _payload, _err = _run(
+        module,
+        [
+            "--target",
+            "group",
+            "--date",
+            "2026-05-01",
+            "--group-daily",
+            str(flag_dir),
+            "--line",
+            "- 09:00 UTC — w",
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert (flag_dir / "2026-05-01.md").exists()
+    assert not (env_dir / "2026-05-01.md").exists()

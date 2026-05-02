@@ -34,7 +34,10 @@ Behavior:
       `- HH:MM UTC — message` vs trusted: `- HH:MM UTC [chat] —
       message`) in the SKILL where the chat-name resolution happens.
     - If the target file is absent the helper creates it with a
-      `# Daily Log — YYYY-MM-DD\n\n` header, then appends the lines.
+      `# Daily Summary — YYYY-MM-DD\n\n` header (matches the regex
+      consumed by `nanoclaw-admin/skills/nightly-housekeeping/scripts/
+      archive-helper.py:57` so files are picked up by nightly archival),
+      then appends the lines.
     - Lines are appended at the END of the file regardless of their
       timestamp prefix. If the helper detects the new lines' first
       timestamp is BEFORE the existing file's last timestamp it logs
@@ -83,6 +86,15 @@ from typing import List, Optional
 
 GROUP_DAILY_DIR = "/workspace/group/memory/daily"
 TRUSTED_DAILY_DIR = "/workspace/trusted/memory/daily"
+# `# Daily Summary — YYYY-MM-DD` is the canonical header — matches
+# the regex in `nanoclaw-admin/skills/nightly-housekeeping/scripts/
+# archive-helper.py:57` AND the example header in `append-daily-
+# summary.py`'s docstring. The trusted-tile and admin-tile daily
+# files share the same archive pipeline, so the helper that creates
+# them must produce a header the archiver recognises — otherwise
+# `archive-helper.py archive-daily` would skip these files and they'd
+# accumulate forever in `daily/`. Em dash is U+2014.
+DAILY_HEADER_TEMPLATE = "# Daily Summary — {date}\n\n"
 ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # Match a leading `- HH:MM UTC` (with optional `[chat-name]` between
 # the timestamp and the message body) so we can compare new vs.
@@ -92,11 +104,21 @@ ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TIMESTAMP_PREFIX_RE = re.compile(r"^-\s+(\d{2}):(\d{2})\s+UTC\b")
 
 
-def _resolve_target_dir(target: str) -> str:
+def _resolve_target_dir(target: str, args) -> str:
+    """Resolve the daily-dir for `--target`. Override precedence:
+    explicit `--group-daily` / `--trusted-daily` flag → matching env var
+    (`NANOCLAW_GROUP_DAILY` / `NANOCLAW_TRUSTED_DAILY`) → module-level
+    default constant. Container deployments that mount the memory tree
+    somewhere other than `/workspace/{group,trusted}/memory/daily` use
+    the env vars; tests use the flags or monkeypatch the constants."""
     if target == "group":
-        return GROUP_DAILY_DIR
+        if args is not None and getattr(args, "group_daily", None):
+            return args.group_daily
+        return os.environ.get("NANOCLAW_GROUP_DAILY") or GROUP_DAILY_DIR
     if target == "trusted":
-        return TRUSTED_DAILY_DIR
+        if args is not None and getattr(args, "trusted_daily", None):
+            return args.trusted_daily
+        return os.environ.get("NANOCLAW_TRUSTED_DAILY") or TRUSTED_DAILY_DIR
     raise ValueError(f"unknown --target {target!r}; expected 'group' or 'trusted'")
 
 
@@ -196,7 +218,7 @@ def _append(*, daily_file: Path, lines: List[str]) -> dict:
         existing = daily_file.read_text(encoding="utf-8")
         created = False
     else:
-        existing = f"# Daily Log — {daily_file.stem}\n\n"
+        existing = DAILY_HEADER_TEMPLATE.format(date=daily_file.stem)
         created = True
 
     last_ts = _last_timestamp(existing)
@@ -236,13 +258,27 @@ def main(argv=None) -> int:
         "--date",
         help="UTC YYYY-MM-DD override (test seam); defaults to today UTC",
     )
+    parser.add_argument(
+        "--group-daily",
+        help=(
+            "override the group daily-dir (default /workspace/group/memory/daily). "
+            "Falls back to NANOCLAW_GROUP_DAILY env var, then the default."
+        ),
+    )
+    parser.add_argument(
+        "--trusted-daily",
+        help=(
+            "override the trusted daily-dir (default /workspace/trusted/memory/daily). "
+            "Falls back to NANOCLAW_TRUSTED_DAILY env var, then the default."
+        ),
+    )
     args = parser.parse_args(argv)
 
     if args.date is not None and not ISO_DATE_RE.match(args.date):
         parser.error(f"--date {args.date!r} must be YYYY-MM-DD (ISO-8601 calendar date)")
 
     try:
-        target_dir = _resolve_target_dir(args.target)
+        target_dir = _resolve_target_dir(args.target, args)
     except ValueError as exc:
         parser.error(str(exc))
         return 2  # parser.error exits 2; this is for type-checkers
