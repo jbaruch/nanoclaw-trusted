@@ -35,7 +35,7 @@ If none exist, you are not deferring — you are skipping. Mark the work skipped
 
 ## Skip-summary file contract (deterministic surfacing)
 
-A skill that defers or skips work writes a structured summary file at `/workspace/group/.skip-summary-<tessl-skill-id>.json`. The surfacer reads, sends via `mcp__nanoclaw__send_message`, and deletes. Owner skill writes; surfacer reads-sends-deletes — the file's existence is the deterministic signal across the call boundary, so prose enforcement of "remember to surface" can't slip under context pressure. Schema, field-by-field reference, full lifecycle, and the planned pre-publish lint: see `docs/skip-summary-schema.md`.
+A skill that defers or skips work writes a structured summary file at `/workspace/group/.skip-summary-<tessl-skill-id>.json`, where `<tessl-skill-id>` is the full `tessl__<name>` identifier (e.g. `.skip-summary-tessl__check-cfps.json`). One file per skill — concurrent skips from different skills don't collide. The surfacer reads, sends via `mcp__nanoclaw__send_message`, and deletes. Owner skill writes; surfacer reads-sends-deletes — the file's existence is the deterministic signal across the call boundary, so prose enforcement of "remember to surface" can't slip under context pressure. Schema fields, field-by-field reference, full lifecycle, and the planned pre-publish lint: see `docs/skip-summary-schema.md`.
 
 ## Applies to
 
