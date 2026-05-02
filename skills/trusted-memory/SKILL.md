@@ -129,16 +129,25 @@ Total context budget for memory: ~3000 tokens. Summarize large files before load
 
 After any non-trivial interaction (decision made, action taken, something new learned about the owner's preferences):
 
-**Group-local log** — append to `/workspace/group/memory/daily/YYYY-MM-DD.md`:
-```
-- HH:MM UTC — [what happened / what was learned]
+**Group-local log** — pipe the bullet line into `append-to-daily-log.py --target group`:
+
+```bash
+echo "- HH:MM UTC — [what happened / what was learned]" \
+  | python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/append-to-daily-log.py \
+      --target group
 ```
 
-**Cross-group shared log** — also append to `/workspace/trusted/memory/daily/YYYY-MM-DD.md` with source attribution:
+**Cross-group shared log** — same helper with `--target trusted` and a `[chat-name]` source-attribution prefix:
+
+```bash
+echo "- HH:MM UTC [chat-name] — [what happened / what was learned]" \
+  | python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/append-to-daily-log.py \
+      --target trusted
 ```
-- HH:MM UTC [chat-name] — [what happened / what was learned]
-```
-Where `[chat-name]` is derived from the group folder name (e.g. `main`, `swarm`, `dedy-bukhtyat`).
+
+Where `[chat-name]` is derived from the group folder name (e.g. `main`, `swarm`, `dedy-bukhtyat`). Multiple bullets in one call: pass repeated `--line "..."` flags or pipe a newline-delimited block on stdin.
+
+The helper resolves today's UTC date, holds `fcntl.LOCK_EX` on a sibling `<file>.lock` for the entire read-modify-write cycle, creates the daily file with a `# Daily Log — YYYY-MM-DD` header on first call, and atomic-writes via `tempfile + fsync + os.replace`. Concurrent writers (default container + maintenance container + sub-skills) serialise on the lock so no caller's lines are clobbered. Stdout: `{"path", "appended_lines", "final_line_count", "created", "out_of_order"}`. Out-of-order detection emits a stderr warning when the new line's timestamp precedes the file's last entry but still appends at end-of-file (cross-group writers and clock-skew retries can legitimately arrive late; silent reorder would mask actual bugs).
 
 Skip for pure heartbeats with nothing to report or trivial acknowledgements.
 
