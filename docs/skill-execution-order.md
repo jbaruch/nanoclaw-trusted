@@ -1,10 +1,10 @@
----
-alwaysApply: true
----
+# Skill Execution Order and Shared State
 
-# Skill Dependencies
+Reference for skill authors working on the cron-driven trusted-tier flows. Captures which skills invoke which others, in what order, and which state files form the read/write contract between them. Read this on demand when modifying a skill that participates in one of these chains; it is not always-loaded into the agent prefix.
 
-Skills that invoke or depend on other skills. Read this to understand execution order and shared state.
+The contents below were the always-loaded `rules/skill-dependencies.md` rule before `jbaruch/nanoclaw-admin#180` (RULES.md diet) moved them here per the umbrella's "developer reference out of always-loaded rules" trim approach.
+
+> **Currency note:** the per-step descriptions reflect the pre-`jbaruch/nanoclaw#404` housekeeping split (`nightly-housekeeping` / `morning-brief` as monoliths). The split shipped 11 independent sub-skills (admin PRs `#159`, `#161`, `#163`, `#165`–`#172`); the monoliths are now run-accounting shells. The shared-state table below remains the authoritative reader/writer contract; the step-numbered narratives are a snapshot, not the current truth — update the relevant section in a follow-up PR if you re-derive the post-split chain.
 
 ## Heartbeat (runs every 15 min)
 1. Calls `task-tz-sync` (Step 0.5) — detects timezone changes
