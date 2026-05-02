@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Rules
+
+- **no-silent-defer — extract skip-summary spec to `docs/skip-summary-schema.md`** (`jbaruch/nanoclaw-admin#182`, umbrella `jbaruch/nanoclaw-admin#180` RULES.md diet) — The `Skip-summary file contract` section was the single largest contributor to the compiled `RULES.md` prefix at ~3.2K. The schema is reference material — skill authors and pre-publish lint scripts read it; the rule's runtime gate is unchanged by where the spec lives. Field-by-field schema, lifecycle / actor responsibilities, and the planned pre-publish lint move to `docs/skip-summary-schema.md`. The rule keeps the imperative ("a skill that defers / skips writes the file at `/workspace/group/.skip-summary-<tessl-skill-id>.json`; owner writes, surfacer reads-sends-deletes") and points to the doc for the rest. Verbatim transfer — no spec content changes in this PR. Measured: rule drops 6,344 → 3,132 bytes (-3,212).
+
 ### Skills
 
 - **`trusted-memory` `append-to-daily-log.py` follow-up — header fix + production overrides** — Two regressions in the originally-shipped helper (post-merge audit found via comparison with `nanoclaw-trusted#21`, the parallel implementation that didn't merge):
