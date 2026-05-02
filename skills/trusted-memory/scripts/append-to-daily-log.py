@@ -17,12 +17,19 @@ sibling `<daily-file>.lock` for the entire read-modify-write cycle so
 the two writers serialize.
 
 Usage:
-    append-to-daily-log.py --target group|trusted [--line "<text>"]
-                           [--lines-file <path>] [--date YYYY-MM-DD]
+    append-to-daily-log.py --target group|trusted
+                           [--line "<text>" ...] [--lines-file <path>]
+                           [--date YYYY-MM-DD]
+                           [--group-daily <path>] [--trusted-daily <path>]
 
 Behavior:
     - `--target group`   → /workspace/group/memory/daily/<UTC-today>.md
     - `--target trusted` → /workspace/trusted/memory/daily/<UTC-today>.md
+    - `--group-daily` / `--trusted-daily` override the daily-dir for
+      the corresponding target (alternate mount layouts, debugging,
+      tests). Falls back to `NANOCLAW_GROUP_DAILY` /
+      `NANOCLAW_TRUSTED_DAILY` env vars when the flag is omitted, then
+      to the default constant. Flag wins over env wins over default.
     - `--date` overrides the resolved UTC date (test seam; production
       callers omit it and let the helper read the wall clock).
     - Lines come from `--line` (single, repeatable), `--lines-file`
@@ -88,10 +95,9 @@ GROUP_DAILY_DIR = "/workspace/group/memory/daily"
 TRUSTED_DAILY_DIR = "/workspace/trusted/memory/daily"
 # `# Daily Summary — YYYY-MM-DD` is the canonical header — matches
 # the regex in `nanoclaw-admin/skills/nightly-housekeeping/scripts/
-# archive-helper.py:57` AND the example header in `append-daily-
-# summary.py`'s docstring. The trusted-tile and admin-tile daily
-# files share the same archive pipeline, so the helper that creates
-# them must produce a header the archiver recognises — otherwise
+# archive-helper.py:57`. The trusted-tile and admin-tile daily files
+# share the same archive pipeline, so the helper that creates them
+# must produce a header the archiver recognises — otherwise
 # `archive-helper.py archive-daily` would skip these files and they'd
 # accumulate forever in `daily/`. Em dash is U+2014.
 DAILY_HEADER_TEMPLATE = "# Daily Summary — {date}\n\n"

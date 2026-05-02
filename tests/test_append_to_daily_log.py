@@ -35,9 +35,20 @@ SCRIPT_PATH = (
 @pytest.fixture
 def append_module(tmp_path, monkeypatch):
     """Fresh module per test with the daily-dir constants redirected
-    into tmp_path. Returns (module, group_dir, trusted_dir)."""
+    into tmp_path. Returns (module, group_dir, trusted_dir).
+
+    Clears `NANOCLAW_GROUP_DAILY` / `NANOCLAW_TRUSTED_DAILY` from the
+    test runner's environment up front. Without that delete, a
+    runner that happened to have the env vars set would route writes
+    into the env-var path instead of the monkeypatched module
+    constants — tests that depend on tmp_path would silently land in
+    the wrong directory and false-pass. The override-precedence tests
+    below set their OWN env vars via `monkeypatch.setenv` after this
+    fixture runs, so the deletion here doesn't interfere with them."""
     group_dir = tmp_path / "group/memory/daily"
     trusted_dir = tmp_path / "trusted/memory/daily"
+    monkeypatch.delenv("NANOCLAW_GROUP_DAILY", raising=False)
+    monkeypatch.delenv("NANOCLAW_TRUSTED_DAILY", raising=False)
     module = load_script(f"append_to_daily_log_{tmp_path.name}", SCRIPT_REL)
     monkeypatch.setattr(module, "GROUP_DAILY_DIR", str(group_dir))
     monkeypatch.setattr(module, "TRUSTED_DAILY_DIR", str(trusted_dir))
@@ -349,7 +360,9 @@ def test_header_matches_archive_helper_regex(append_module, capsys):
     """archive-helper.py in nanoclaw-admin/skills/nightly-housekeeping
     archives both /workspace/group/memory/daily/ AND /workspace/trusted/
     memory/daily/ via a daily-header regex `^# Daily Summary —
-    \\d{4}-\\d{2}-\\d{2}$`. If our header diverges, archive-helper
+    \\d{4}-\\d{2}-\\d{2}\\s*$` (the `\\s*$` tolerates trailing
+    whitespace, common when an editor strips/preserves trailing
+    blanks asymmetrically). If our header diverges, archive-helper
     silently skips the file and daily logs accumulate forever in
     daily/. Lock the canonical wording in so a future "let's tighten
     the header style" change can't regress this without breaking the
