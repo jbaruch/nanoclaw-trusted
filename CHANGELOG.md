@@ -12,7 +12,7 @@
 
 - Combined trusted bundle 1: **-2,789 bytes** from the trusted-tier prefix.
 
-- **`skill-dependencies` — drop `check-unanswered` heartbeat step** (`jbaruch/nanoclaw-core#38`). The heartbeat-flow list in `rules/skill-dependencies.md` named `check-unanswered` as Step 0.7. With the skill removed in `jbaruch/nanoclaw-core#38`, the bullet is gone; the surrounding tz-sync / missed-tasks / heartbeat-checks bullets are unchanged.
+- **`skill-dependencies` heartbeat-flow edit (`jbaruch/nanoclaw-core#38`) is folded into the rule retirement above** — earlier in the same `Unreleased` window, `nanoclaw-trusted#31` removed the `check-unanswered` Step 0.7 bullet from `rules/skill-dependencies.md` after the skill was deleted in `jbaruch/nanoclaw-core#38`. Since the rule itself is now retired in this PR (content relocated to `docs/skill-execution-order.md`), that prior bullet's edit lands as part of the relocated doc rather than the always-loaded rule.
 
 ### Skills
 

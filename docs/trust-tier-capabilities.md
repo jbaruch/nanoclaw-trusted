@@ -18,4 +18,4 @@ The contents below were the always-loaded "Container Trust Levels" subsection of
 - No Composio, no host scripts, no auto-memory
 - 512MB RAM, 1 CPU, 5 min idle timeout
 
-The authoritative source for this matrix is the host's `src/container-runner.ts` — specifically `buildVolumeMounts` (mount construction per tier), `selectTiles` (which tiles each tier installs), and the resource-limit constants applied to the container spawn. Update this doc alongside changes to those code paths.
+The authoritative source for this matrix is the host repo `jbaruch/nanoclaw` — specifically `src/container-runner.ts` (`buildVolumeMounts` for mount construction per tier; `selectTiles` for which tiles each tier installs) and the resource-limit constants applied to the container spawn. Update this doc alongside changes to those code paths.
