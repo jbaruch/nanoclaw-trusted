@@ -4,6 +4,8 @@
 
 ### Rules
 
+- **identity-dual-handle / installed-content-immutable — migrate postmortems to `docs/adr/`** (`jbaruch/nanoclaw-admin#183`, umbrella `jbaruch/nanoclaw-admin#180` RULES.md diet) — Two always-loaded rules contained incident postmortem narratives that don't change runtime behavior — they exist as historical context for *why* the rule exists. Moving them to `docs/adr/` removes them from the agent prefix while preserving the institutional memory. Each rule keeps the imperative + 1–2 line anchor pointing to the ADR. Verbatim transfer; no spec content changes. Files: `docs/adr/2026-04-27-dual-handle-role-splitting.md`, `docs/adr/2026-04-25-installed-content-erofs.md`. Measured: identity-dual-handle drops 2,142 → 1,242 bytes (-900); installed-content-immutable drops 2,339 → 1,038 bytes (-1,301); combined -2,201 bytes from the trusted-tier prefix.
+
 - **`skill-dependencies` — drop `check-unanswered` heartbeat step** (`jbaruch/nanoclaw-core#38`). The heartbeat-flow list in `rules/skill-dependencies.md` named `check-unanswered` as Step 0.7. With the skill removed in `jbaruch/nanoclaw-core#38`, the bullet is gone; the surrounding tz-sync / missed-tasks / heartbeat-checks bullets are unchanged.
 
 ### Skills
