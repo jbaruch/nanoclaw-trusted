@@ -1,89 +1,33 @@
 ---
-name: check-system-health
-description: Check NanoClaw system health — stuck tasks, DB size, task run failures. Uses /workspace/store/messages.db directly. Use as part of heartbeat or standalone. Triggers on "system health", "check tasks", "check database".
+name: system-status
+description: Read-only system-status probe for trusted-tier NanoClaw containers — surfaces stuck scheduled tasks, DB size, and recent task-run failures from the orchestrator's SQLite at `/workspace/store/messages.db`. Use as part of heartbeat or standalone. Triggers on "system status", "check tasks", "stuck tasks", "database size", "task failures".
 ---
 
-# Check System Health
+# System Status
 
-**Invoked from:** heartbeat (Step 5). Also available standalone.
+**Process steps in order. Do not skip ahead.**
 
-DB is at `/workspace/store/messages.db`. Run each check below.
+Read-only counterpart to admin's `tessl__heartbeat`'s system-health probe. Trusted tier sees the orchestrator's SQLite directly but does not have admin's filesystem / IPC / container mounts and does not manage the dismiss file at `/workspace/group/system-health-dismissed.json`.
 
-## 1. Stuck scheduled tasks
-
-```bash
-python3 -c "
-import sqlite3
-conn = sqlite3.connect('/workspace/store/messages.db', timeout=5)
-rows = conn.execute(\"SELECT id, substr(prompt, 1, 50), next_run FROM scheduled_tasks WHERE status='active' AND next_run <= datetime('now', '-5 minutes')\").fetchall()
-for r in rows: print(r)
-print(f'stuck={len(rows)}')
-conn.close()
-"
-```
-
-**If stuck > 0:** Report the stuck task IDs and prompts. The DB is read-only from the container — auto-fix is not possible. The orchestrator's scheduler will retry on the next poll cycle. If tasks remain stuck, flag for the owner to investigate.
-
-## 2. Database size
+## Step 1 — Run the probe
 
 ```bash
-python3 -c "
-import sqlite3, os
-conn = sqlite3.connect('/workspace/store/messages.db', timeout=5)
-msg_count = conn.execute('SELECT COUNT(*) FROM messages').fetchone()[0]
-log_count = conn.execute('SELECT COUNT(*) FROM task_run_logs').fetchone()[0]
-conn.close()
-size_mb = os.path.getsize('/workspace/store/messages.db') / 1048576
-print(f'messages={msg_count} task_run_logs={log_count} size={size_mb:.1f}MB')
-"
+python3 /home/node/.claude/skills/tessl__system-status/scripts/system-status-checks.py
 ```
 
-**Alert if:** messages > 100k rows, task_run_logs > 10k rows, or DB > 500MB.
+Output is a single JSON object on stdout: `{checked_at, db_path, stuck_tasks, stuck_count, row_counts, db_size_mb, recent_failures, alerts}`. Exit 0 = checks ran (alerts may or may not be populated). Exit 1 = DB unreachable or every check raised; the JSON still emits with `alerts` describing what failed.
 
-## 3. Recent task failures
+## Step 2 — Act on the result
 
-Task failure checks are handled by `heartbeat-checks.py` (`check_task_failures` function at `/workspace/group/heartbeat-checks.py`), which queries `task_run_logs` and respects the dismiss file at `/workspace/group/system-health-dismissed.json`. Inspect that file directly if you need to review or replicate the query logic.
+Parse the JSON.
 
-**Alert if:** failures > 0 and not dismissed. Report task IDs and error summaries.
+- `alerts` is empty → silent success. **Output nothing.**
+- `alerts` is non-empty → report via `mcp__nanoclaw__send_message`. Include the items the alert refers to: `stuck_tasks` IDs + prompt previews, `recent_failures` task IDs + error summaries, the offending row counts or DB size.
 
-**Note:** The correct column name is `run_at` (not `timestamp`) in `task_run_logs`.
+The DB is read-only from the trusted container — auto-fix is not possible. The orchestrator's scheduler retries stuck tasks on the next poll; if alerts persist across cycles, flag for the operator.
 
-## 4. Dismiss mechanism
+## What this skill is NOT
 
-Persistent dismissals are stored in `/workspace/group/system-health-dismissed.json`:
-
-```json
-{
-  "dismissed": {
-    "task_failure:<task_id>": {
-      "reason": "why dismissed",
-      "dismissed_at": "2026-04-02T16:00:00Z",
-      "expires_at": null
-    }
-  }
-}
-```
-
-- **Fingerprint format:** `task_failure:<task_id>` (e.g., `task_failure:task-1774576028296-wfve4q`)
-- **`expires_at`: null** = permanent dismiss (never re-reports)
-- **`expires_at`: ISO timestamp** = snooze until that time (e.g., `"2026-04-03T16:00:00Z"` = 24h snooze)
-
-**To dismiss an issue:** write its fingerprint into `system-health-dismissed.json`. The check will skip it on all future runs (until expiry if set).
-
-**To re-enable:** remove the entry from `system-health-dismissed.json` or set `expires_at` to a past timestamp.
-
-## Error handling
-
-If a check fails to run, handle these common cases before reporting:
-
-- **DB file missing** (`/workspace/store/messages.db` not found): report that the database is unreachable and skip remaining checks.
-- **Table doesn't exist** (`OperationalError: no such table`): report which table is missing; the schema may be out of date or not yet initialised.
-- **DB locked** (`OperationalError: database is locked`): retry once after a short pause; if still locked, report the lock condition and skip that check.
-
-Do not suppress these errors silently — report them via `mcp__nanoclaw__send_message` the same way you would report a health issue.
-
-## Output
-
-**If issues found:** report them via `mcp__nanoclaw__send_message`.
-
-**If no issues: output nothing. Complete silence. Never output "all clear", "no issues found", "everything looks good", or any confirmation that checks passed. Silence IS the success signal.**
+- It does not modify the DB.
+- It does not consult or write `/workspace/group/system-health-dismissed.json`. That file is admin's domain (per `tessl__heartbeat`'s system-health step). Trusted reports verbatim; the operator decides what to do.
+- It does not probe filesystem / IPC / container health. Those checks require admin-only mounts and live in admin's `heartbeat-checks.py`.

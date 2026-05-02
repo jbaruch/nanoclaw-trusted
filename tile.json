@@ -1,6 +1,6 @@
 {
   "name": "jbaruch/nanoclaw-trusted",
-  "version": "0.1.52",
+  "version": "0.1.56",
   "summary": "Rules for trusted NanoClaw groups. Shared memory, session bootstrap, cross-group memory updates. Loaded for trusted and main containers only.",
   "entrypoint": "README.md",
   "private": false,
@@ -43,6 +43,9 @@
     },
     "installed-content-immutable": {
       "rules": "rules/installed-content-immutable.md"
+    },
+    "identity-dual-handle": {
+      "rules": "rules/identity-dual-handle.md"
     }
   },
   "skills": {
