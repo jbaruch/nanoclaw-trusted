@@ -43,6 +43,9 @@
     },
     "installed-content-immutable": {
       "rules": "rules/installed-content-immutable.md"
+    },
+    "identity-dual-handle": {
+      "rules": "rules/identity-dual-handle.md"
     }
   },
   "skills": {
