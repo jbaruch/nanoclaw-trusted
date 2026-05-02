@@ -1,6 +1,6 @@
 # 2026-04-27 — Dual-Handle Role-Splitting Incident
 
-Reference incident motivating the deploy-tier `rules/identity-dual-handle.md` companion to the abstract dual-handle invariant in `jbaruch/nanoclaw-core: rules/core-behavior.md`.
+Reference incident motivating the deploy-tier `rules/identity-dual-handle.md` companion to the abstract dual-handle invariant in the `jbaruch/nanoclaw-core` tile's `rules/core-behavior.md`.
 
 ## What happened
 
