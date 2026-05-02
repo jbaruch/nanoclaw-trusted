@@ -20,10 +20,4 @@ The summary MUST include, in this order:
 
 If a personal fact was mentioned during the session but NOT yet saved to `/workspace/trusted/` memory — save it NOW, before compaction loses it. This is not optional. Compaction summaries are lossy; typed memory files are not.
 
-## What compaction summaries naturally preserve (don't duplicate)
-
-- File paths and code changes (these are in git)
-- Tool call sequences (reconstructable from the task)
-- Error messages (look at the code or logs)
-
-Focus the summary budget on the human context that only exists in conversation.
+Focus the summary budget on the human context that only exists in conversation — file paths, code changes, tool-call sequences, and error messages are all reconstructable from git, the task, and logs and should not consume the summary budget.
