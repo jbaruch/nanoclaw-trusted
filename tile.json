@@ -11,9 +11,6 @@
     "trusted-behavior": {
       "rules": "rules/trusted-behavior.md"
     },
-    "skill-dependencies": {
-      "rules": "rules/skill-dependencies.md"
-    },
     "no-orphan-tasks": {
       "rules": "rules/no-orphan-tasks.md"
     },

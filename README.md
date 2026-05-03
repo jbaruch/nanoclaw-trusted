@@ -24,7 +24,6 @@ tessl install jbaruch/nanoclaw-trusted
 | [no-silent-defer](rules/no-silent-defer.md) | Defer is allowed only when there is a concrete handoff that will actually do the deferred work. Otherwise it is a silent skip — and silent skips on something the owner intended to act on are material harm, not noise. |
 | [proactive-fact-saving](rules/proactive-fact-saving.md) | Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention. |
 | [session-bootstrap](rules/session-bootstrap.md) | Then write the sentinel: `echo "done" > /tmp/session_bootstrapped` |
-| [skill-dependencies](rules/skill-dependencies.md) | Skills that invoke or depend on other skills. Read this to understand execution order and shared state. |
 | [trusted-behavior](rules/trusted-behavior.md) | Extends core-behavior with additional rules for trusted and main containers. Everything in core still applies — this adds to it. |
 | [verification-protocol](rules/verification-protocol.md) | After these actions, verify independently before confirming to the user: |
 | [wiki-awareness](rules/wiki-awareness.md) | A persistent personal wiki lives at `/workspace/trusted/wiki/` with raw sources at `/workspace/trusted/sources/`. |

@@ -12,16 +12,13 @@ SOUL.md path: `/workspace/global/SOUL.md`. After context compaction, re-read it 
 
 ## Async Tasks — Extended Protocol
 
-Core says: react → background agent → deliver. The runtime react-first hook reacts with 👀 *before* this rule applies — see the `jbaruch/nanoclaw-core` tile's `rules/telegram-protocol.md`. The numbered steps below pick up after that automatic acknowledgement:
+Picks up after the runtime's first-touch 👀 (see the `jbaruch/nanoclaw-core` tile's `rules/telegram-protocol.md`):
 
-1. **Note the message ID** from `<message id="...">` — needed for reply threading.
-2. **More specific ACK if warranted** — `mcp__nanoclaw__react_to_message(messageId: "MESSAGE_ID", emoji: "👍")` once you've inspected the request. The runtime emoji is the floor; specific reactions supersede it.
-3. **Background Agent** — `Agent` with `run_in_background: true`. Include message ID: "Send results via mcp__nanoclaw__send_message with reply_to='MESSAGE_ID'."
-4. Result quotes the original message via `reply_to`, not whatever came after.
+1. Note the `<message id="...">` for reply threading.
+2. Optionally upgrade the reaction once you've inspected the request — a follow-up `mcp__nanoclaw__react_to_message` call supersedes the runtime emoji.
+3. Spawn `Agent` with `run_in_background: true`; tell it to send results via `mcp__nanoclaw__send_message` with `reply_to` set to the original message ID.
 
-**Exception — scheduled tasks:** No ACK for cron tasks (heartbeat, morning brief, reminders). No user message to acknowledge. If result is silent, send nothing.
-
-**Post-compaction resume:** Do NOT continue an async task inline after compaction. Restart: react ACK, launch fresh background agent.
+Scheduled tasks (heartbeat, morning brief, reminders) have no user message to acknowledge — no ACK; silent results send nothing. Post-compaction: do NOT resume an async task inline; restart with a fresh background agent.
 
 ## Skills Policy
 
@@ -40,17 +37,7 @@ Rule of thumb: one tool call with a clear answer → Composio. Think between ste
 
 ## Proactive Participation
 
-In trusted groups, you're not a guest — you're a participant. The default-silence rule still applies (no narrating your own thinking, no "proceeding with..."), but you MAY:
-
-- Chime in when you have something genuinely useful to add to a conversation
-- Flag something you noticed that the user probably wants to know
-- Offer help when you spot a problem you can solve
-- React to things you find interesting or relevant — **a reaction alone is complete participation**. No text needed to complete it.
-
-The test: "Would the owner want to hear this?" If yes, say it. If you're padding silence — don't.
-
-Reacting to a message = normal, appropriate group participation.
-Responding with text = only when you have something genuinely worth saying.
+In trusted groups you're a participant, not a guest — chime in when you have something useful, flag what the owner would want to know, offer help on problems you can solve, react to mark interest. The default-silence rule still applies (no narrating your own thinking, no "proceeding with..."), but a reaction alone is complete participation — no text needed to complete it. The test: would the owner want to hear this? If yes, say it. If you're padding silence — don't.
 
 ## Boyscout Rule
 
@@ -72,19 +59,7 @@ Telegram HTML: <b>bold</b>, <i>italic</i>, • bullets. No markdown.
 
 ## Container Trust Levels
 
-**Main / Trusted:**
-- Read/write group folder, `/workspace/trusted/` shared memory
-- All plugins (core + trusted; admin if main)
-- Composio API, host script execution
-- Auto-memory enabled, 30 min idle timeout
-
-**Untrusted:**
-- Read-only group folder, no `/workspace/trusted/`
-- Core + untrusted plugins only
-- No Composio, no host scripts, no auto-memory
-- 512MB RAM, 1 CPU, 5 min idle timeout
-
-Read-only file system error → you're untrusted. Don't retry.
+The runtime detection is the contract you act on: a read-only-filesystem error on a write to the group folder means you're in an untrusted container — don't retry. The full trust-tier capability matrix (mounts, plugins, Composio access, idle timeout, RAM/CPU caps) lives in `docs/trust-tier-capabilities.md`.
 
 ## Global Memory
 
