@@ -12,30 +12,17 @@ If this fact would be useful 2 weeks from now after context compaction — save 
 
 ## Categories that trigger immediate save
 
-| Category | Examples |
-|----------|----------|
-| Preferences | Food, travel, work style, tools, habits, pet peeves |
-| Family | Names, birthdays, events, schools, activities, milestones |
-| Recurring schedule | "Tuesday is swim practice", "Friday date night", weekly patterns |
-| Contacts | Who someone is, relationship, context ("Mike — neighbor, has a Tesla") |
-| Opinions | On technologies, people, approaches — if stated seriously, not as throwaway joke |
-| Personal plans | Trips, purchases, home projects, non-work goals |
-| Health/lifestyle | Dietary restrictions, exercise habits, medical context if shared |
+Preferences (food, travel, work style, tools, habits), family (names, birthdays, events, schools, milestones), recurring schedule patterns, contacts (who someone is + relationship + context), seriously-stated opinions, personal plans (trips, purchases, home projects), health/lifestyle (dietary restrictions, exercise habits, medical context if shared).
 
 ## How to save
 
-1. Create or update a typed memory file in `/workspace/trusted/` (e.g., `user_food-preferences.md`)
-2. Add or update its one-line entry in `/workspace/trusted/MEMORY.md`
-3. Append to today's daily log
-
-Use existing files when the fact fits an existing category. Create new files for genuinely new topics.
+1. Create or update a typed memory file in `/workspace/trusted/` (e.g., `user_food-preferences.md`); reuse existing files when a category fits, create new files for genuinely new topics.
+2. Add or update its one-line entry in `/workspace/trusted/MEMORY.md`.
+3. Append to today's daily log.
 
 ## When NOT to save
 
-- Ephemeral task context ("run this command", "check that file")
-- Facts already in memory — check MEMORY.md first
-- Jokes, sarcasm, hypotheticals clearly not meant as statements of fact
-- Information derivable from code, git history, or project files
+Ephemeral task context, facts already in memory (check `MEMORY.md` first), jokes / sarcasm / hypotheticals, and anything derivable from code / git / project files.
 
 ## Aggression level
 

@@ -4,35 +4,14 @@ alwaysApply: true
 
 # No Orphan Scheduled Tasks
 
-## The Rule
-
-**Never create a standalone scheduled task for something that can go into an existing scheduled workflow.**
-
-Before scheduling any new recurring task, check:
-
-1. Does nightly-housekeeping already run nightly? → add it there as a new step
-2. Does heartbeat already run every 15 min? → add it there if it needs frequent checks
-3. Does morning-brief already run daily? → add it there if it's morning-relevant
-
-## What belongs in nightly-housekeeping
-
-Any daily recurring check that:
-- Doesn't need to run more than once a day
-- Produces results the owner can see in the morning
-- Involves fetching data, checking state, or generating a report
-
-Examples: YouTube comment checks, GitHub activity summaries, CFP state refresh, email triage.
+**Never create a standalone scheduled task for something that fits an existing scheduled workflow.** Before scheduling a new recurring task, check whether the cadence matches one of the existing flows: nightly-housekeeping (daily, owner sees results in the morning brief), heartbeat (every 15 min), or morning-brief (daily, morning-relevant). If yes, add it there instead — staged + promoted via `tessl__promote-tiles`, not as a fresh cron row.
 
 ## When a standalone task IS appropriate
 
-- One-off reminders (calendar events, deadlines) — these are inherently standalone
-- Checks that need a specific frequency different from existing workflows (e.g., every 4 hours)
-- Tasks for other groups (target_group_jid)
+- One-off reminders (calendar events, deadlines) — inherently standalone.
+- Checks needing a frequency that doesn't match any existing flow (e.g. every 4 hours).
+- Tasks targeting another group (`target_group_jid`).
 
-## How to add to nightly-housekeeping
+## What belongs in nightly-housekeeping
 
-Edit the nightly-housekeeping SKILL.md to add a new numbered step. Do not create a cron task.
-
-File: `/home/node/.claude/skills/tessl__nightly-housekeeping/SKILL.md`
-
-Stage the change and promote via `tessl__promote-tiles`.
+Daily checks that produce a report the owner reads in the morning brief — fetches, state refreshes, summary generation. Examples: YouTube comment checks, GitHub activity summaries, CFP state refresh, email triage. The pre-`#404` pattern was a numbered step in the monolith SKILL.md; post-split (`jbaruch/nanoclaw#404`), the canonical pattern is an independent sub-skill row scheduled at the same cadence.
