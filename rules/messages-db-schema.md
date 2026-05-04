@@ -20,7 +20,7 @@ The shared SQLite at `/workspace/store/messages.db` (accessed via `python3 -c 'i
 
 ## Prefer MCP Tools for Mutations
 
-Where an MCP host tool already exposes the field (`chat_status`, `inspect_gate_decisions`, `get_scheduled_tasks`, etc.), prefer it over raw SQL — the tool also handles the host-side concurrency contract (`BEGIN IMMEDIATE` for `follow_me_tasks` writes per the two-phase-lock rule). Direct SQL is for read-mostly inspection; mutations should go through the tool path unless concurrency is provably safe.
+Where an MCP host tool already exposes the field (`chat_status`, `inspect_gate_decisions`, `get_scheduled_tasks`, etc.), prefer it over raw SQL — the tool also handles the host-side concurrency contract (`BEGIN IMMEDIATE` for `follow_me_tasks` writes per the `nanoclaw-admin: follow-me-two-phase-lock` rule). Direct SQL is for read-mostly inspection; mutations should go through the tool path unless concurrency is provably safe.
 
 ## Schema Drift
 

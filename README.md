@@ -14,12 +14,15 @@ tessl install jbaruch/nanoclaw-trusted
 
 | Rule | Summary |
 |------|---------|
+| [cli-tools-not-installed](rules/cli-tools-not-installed.md) | The agent container image does NOT include `gh` or `sqlite3` — use Composio `GITHUB_*` tools and `python3 -c 'import sqlite3; ...'` respectively. |
 | [compaction-aware-summaries](rules/compaction-aware-summaries.md) | When Claude Code compacts context, the summary must preserve information that cannot be recovered from files alone. |
 | [daily-discoveries-rule](rules/daily-discoveries-rule.md) | When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately write it to `/workspace/trusted/memory/daily_discoveries.md`: |
+| [github-data-via-composio](rules/github-data-via-composio.md) | `curl https://api.github.com/...` is also wrong (unauthenticated 60 req/hr, no error envelope, private-repo visibility gap) — use the Composio `GITHUB_*` tools enumerated in `cli-tools-not-installed`. |
 | [ground-truth-trusted](rules/ground-truth-trusted.md) | Extends the core ground-truth rule with verification methods and computation available to trusted containers via Composio. |
 | [identity-dual-handle](rules/identity-dual-handle.md) | Deploy-tier reference incident for the abstract dual-handle invariant in the `jbaruch/nanoclaw-core` tile's `rules/core-behavior.md`: a concrete failure where the agent split itself into two addressees because one message used both its display-name trigger AND its Telegram `@username`. |
 | [installed-content-immutable](rules/installed-content-immutable.md) | Installed skills and rules under `/home/node/.claude/skills/` and `/home/node/.claude/.tessl/` are kernel-level read-only at runtime — `Write`/`Edit` against them returns `EROFS`. Real changes flow through the staging → promote → publish → update pipeline. |
 | [memory-file-locations](rules/memory-file-locations.md) | 1. **All typed memory files go in `/workspace/trusted/` root** — never in `/workspace/trusted/memory/`. The `memory/` subdirectory is ONLY for daily logs and daily_discoveries. |
+| [messages-db-schema](rules/messages-db-schema.md) | Authoritative `PRAGMA table_info` listing for the canonical `messages.db` tables — agents kept guessing column names (`trigger_word` vs real `trigger_pattern`) and hitting `no such column`. |
 | [no-orphan-tasks](rules/no-orphan-tasks.md) | Before scheduling any new recurring task, check: |
 | [no-silent-defer](rules/no-silent-defer.md) | Defer is allowed only when there is a concrete handoff that will actually do the deferred work. Otherwise it is a silent skip — and silent skips on something the owner intended to act on are material harm, not noise. |
 | [proactive-fact-saving](rules/proactive-fact-saving.md) | Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention. |
