@@ -43,6 +43,15 @@
     },
     "identity-dual-handle": {
       "rules": "rules/identity-dual-handle.md"
+    },
+    "cli-tools-not-installed": {
+      "rules": "rules/cli-tools-not-installed.md"
+    },
+    "github-data-via-composio": {
+      "rules": "rules/github-data-via-composio.md"
+    },
+    "messages-db-schema": {
+      "rules": "rules/messages-db-schema.md"
     }
   },
   "skills": {
