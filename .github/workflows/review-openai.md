@@ -36,6 +36,22 @@ permissions:
   contents: read
   pull-requests: read
 
+# Runner-boundary skip for the dominant same-family case: when the PR body
+# declares `**Author-Model:**` with a `gpt-*` or `codex-*` value and no
+# `claude-` token, GitHub's scheduler skips this job before allocating a
+# runner — zero minutes, zero LLM tokens. The Step 1 in-prompt gate stays
+# as a backstop for trailer-only PRs (no body line) where the scheduler
+# can't read commits, and for mixed/other-family declarations where
+# `contains()` is too coarse to encode the full rule. `edited` in the
+# trigger above lets this scheduler-level gate re-evaluate when a
+# contributor fixes the body without pushing. See
+# `jbaruch/coding-policy: author-model-declaration` for full skip semantics.
+if: |
+  !(contains(github.event.pull_request.body, '**Author-Model:**')
+    && (contains(github.event.pull_request.body, 'gpt-')
+        || contains(github.event.pull_request.body, 'codex-'))
+    && !contains(github.event.pull_request.body, 'claude-'))
+
 engine:
   id: codex
   model: gpt-5.4
