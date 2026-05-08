@@ -31,6 +31,14 @@ on:
   skip-bots:
     - "dependabot[bot]"
     - "renovate[bot]"
+  # Make the framework's `pre_activation` and `activation` jobs depend
+  # on the custom `gate` job (defined in `jobs:` below). Combined with
+  # the top-level `if: needs.gate.outputs.should_skip != 'true'`, gh-aw
+  # composes that condition onto activation as well, so same-family
+  # PRs skip the activation runner setup, secret validation, and the
+  # agent boot — the gate job is the only substantive work performed.
+  needs:
+    - gate
 
 permissions:
   contents: read
