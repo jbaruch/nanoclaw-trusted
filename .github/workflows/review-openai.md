@@ -36,21 +36,64 @@ permissions:
   contents: read
   pull-requests: read
 
-# Runner-boundary skip for the dominant same-family case: when the PR body
-# declares `**Author-Model:**` with a `gpt-*` or `codex-*` value and no
-# `claude-` token, GitHub's scheduler skips this job before allocating a
-# runner — zero minutes, zero LLM tokens. The Step 1 in-prompt gate stays
-# as a backstop for trailer-only PRs (no body line) where the scheduler
-# can't read commits, and for mixed/other-family declarations where
-# `contains()` is too coarse to encode the full rule. `edited` in the
-# trigger above lets this scheduler-level gate re-evaluate when a
-# contributor fixes the body without pushing. See
-# `jbaruch/coding-policy: author-model-declaration` for full skip semantics.
-if: |
-  !(contains(github.event.pull_request.body, '**Author-Model:**')
-    && (contains(github.event.pull_request.body, 'gpt-')
-        || contains(github.event.pull_request.body, 'codex-'))
-    && !contains(github.event.pull_request.body, 'claude-'))
+# Same-family reviewer skip: gated by a tiny `gate` custom job that parses
+# the canonical `Author-Model:` declaration line per
+# `jbaruch/coding-policy: author-model-declaration`. The gate runs on
+# ubuntu-slim in ~10s, exposes `should_skip`, and the agent job only
+# proceeds when the value is not 'true'. The Step 1 in-prompt gate stays
+# as a backstop for trailer-only PRs (no body line) and as the source
+# of truth.
+#
+# A coarser body-wide `contains()` was tried first; it false-positives
+# on PRs whose body quotes the rule's example (e.g., `**Author-Model:**
+# claude-opus-4-7` quoted as documentation by a human-authored PR), and
+# false-negatives whenever prose mentions a paired-family token. The
+# parsing gate respects the declaration-line semantics and avoids both.
+if: needs.gate.outputs.should_skip != 'true'
+
+jobs:
+  gate:
+    runs-on: ubuntu-slim
+    outputs:
+      should_skip: ${{ steps.decide.outputs.should_skip }}
+    steps:
+      - id: decide
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          MY_FAMILY: openai
+          PAIRED_OTHER: anthropic
+        run: |
+          python3 <<'PY'
+          import os, re
+          body = os.environ.get('PR_BODY') or ''
+          # Match the canonical declaration line per
+          # jbaruch/coding-policy: author-model-declaration: `**Author-Model:**`
+          # or bare `Author-Model:` followed by whitespace-separated model IDs.
+          m = re.search(
+              r'^(?:\*\*Author-Model:\*\*|Author-Model:)\s+(.+?)\s*$',
+              body, re.MULTILINE)
+          if not m:
+              skip = False  # no body declaration → in-prompt gate handles
+          else:
+              tokens = m.group(1).split()
+              families = set()
+              for tok in tokens:
+                  if tok == 'human':
+                      continue  # human → none, not a family
+                  elif tok.startswith('claude-'):
+                      families.add('anthropic')
+                  elif tok.startswith('gpt-') or tok.startswith('codex-'):
+                      families.add('openai')
+                  elif tok.startswith('gemini-'):
+                      families.add('google')
+                  else:
+                      families.add(tok)  # ad-hoc family
+              skip = (os.environ['MY_FAMILY'] in families
+                      and os.environ['PAIRED_OTHER'] not in families)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"should_skip={'true' if skip else 'false'}\n")
+          print(f"should_skip={'true' if skip else 'false'}")
+          PY
 
 engine:
   id: codex
