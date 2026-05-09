@@ -31,7 +31,7 @@ jobs:
       # jbaruch/coding-policy so improvements land once and propagate to
       # every consumer plugin.
       - name: Skill review (changed only)
-        uses: jbaruch/coding-policy/.github/actions/skill-review@main
+        uses: jbaruch/coding-policy/.github/actions/skill-review@b63f13ea80e92c784cf71fc74ed98f71b15f2aa2 # v0.x
         with:
           threshold: '85'
 
