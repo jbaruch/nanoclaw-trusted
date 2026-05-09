@@ -15,19 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Required by jbaruch/coding-policy/.github/actions/skill-review:
+          # the action runs `git diff $BEFORE..HEAD` to find changed skills.
+          # The action falls back to a depth-recovery fetch if needed, but
+          # `fetch-depth: 0` keeps the path predictable.
+          fetch-depth: 0
 
       - uses: tesslio/setup-tessl@v2
         with:
           token: ${{ secrets.TESSL_TOKEN }}
 
-      - name: Skill review (quality gate)
-        run: |
-          for skill_dir in skills/*/; do
-            [ -f "$skill_dir/SKILL.md" ] || continue
-            echo "::group::Reviewing $(basename $skill_dir)"
-            tessl skill review --threshold 85 "$skill_dir/SKILL.md"
-            echo "::endgroup::"
-          done
+      # Reviews only the skills whose files changed in this push, instead
+      # of every skill in the tile every time. Action lives in
+      # jbaruch/coding-policy so improvements land once and propagate to
+      # every consumer plugin.
+      - name: Skill review (changed only)
+        uses: jbaruch/coding-policy/.github/actions/skill-review@b63f13ea80e92c784cf71fc74ed98f71b15f2aa2 # v0.x
+        with:
+          threshold: '85'
 
       - name: Lint tile
         run: tessl tile lint .
