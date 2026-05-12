@@ -44,11 +44,8 @@
     "identity-dual-handle": {
       "rules": "rules/identity-dual-handle.md"
     },
-    "cli-tools-not-installed": {
-      "rules": "rules/cli-tools-not-installed.md"
-    },
-    "github-data-via-composio": {
-      "rules": "rules/github-data-via-composio.md"
+    "github-data-via-gh": {
+      "rules": "rules/github-data-via-gh.md"
     },
     "messages-db-schema": {
       "rules": "rules/messages-db-schema.md"
