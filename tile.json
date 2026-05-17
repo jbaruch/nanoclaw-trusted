@@ -44,6 +44,9 @@
     "identity-dual-handle": {
       "rules": "rules/identity-dual-handle.md"
     },
+    "local-context-anchoring": {
+      "rules": "rules/local-context-anchoring.md"
+    },
     "github-data-via-gh": {
       "rules": "rules/github-data-via-gh.md"
     },
