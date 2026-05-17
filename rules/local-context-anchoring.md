@@ -21,9 +21,9 @@ When the calendar / email / scheduled-task data carries UTC or another zone, con
 
 ## Surface uncertainty when the anchor is weak
 
-When `timezone_source="container_default"` (no location pin AND no covering TripIt segment was available, so the orchestrator fell back to the container's `TZ` env), say so — the answer's date frame may be wrong, and the user should know to correct.
+When `timezone_source="container_default"` (no location pin AND no itinerary-derived timezone was available, so the orchestrator fell back to the container's `TZ` env), say so — the answer's date frame may be wrong, and the user should know to correct.
 
-Don't pretend to know `here` if `location_*` attrs are absent — the `<context>` tag only emits `location_lat` / `location_lng` / `location_age_minutes` when `timezone_source="location"` (a fresh shared-location pin drove the resolution). On `segment` / `home_fallback` / `container_default` paths the agent has no physical-position signal and `here` is unknown.
+Don't pretend to know `here` if `location_*` attrs are absent — the `<context>` tag only emits `location_lat` / `location_lng` / `location_age_minutes` when `timezone_source="location"` (a fresh shared-location pin drove the resolution). When `timezone_source` is anything other than `location` (currently `segment` / `home_fallback` / `container_default` in this orchestrator version) the agent has no physical-position signal and `here` is unknown.
 
 ## Trumps inline data formats
 
