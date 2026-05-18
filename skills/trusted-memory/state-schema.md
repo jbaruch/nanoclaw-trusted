@@ -1,6 +1,6 @@
 # trusted-memory state schema
 
-State written by `scripts/register-session.py` per `jbaruch/coding-policy: stateful-artifacts`. Owner skill is `tessl__trusted-memory`. Reader skills MUST treat any unrecognised shape as "no usable prior state" and let the next owner-skill run rewrite it.
+State written by `scripts/register-session.py` per `jbaruch/coding-policy: stateful-artifacts`. Owner skill is `tessl__trusted-memory`. Reader skills — `jbaruch/nanoclaw-admin: tessl__heartbeat` and `jbaruch/nanoclaw-admin: tessl__check-email` — MUST treat any unrecognised shape as "no usable prior state" and let the next owner-skill run rewrite it.
 
 ## Files
 
@@ -25,7 +25,7 @@ Mutable JSON object. Per-group, not shared across containers.
 
 **Back-compat note (legacy migration, ex–`reference_session-state-migration.md`):** the top-level `session_id` field is the pre-`PR jbaruch/nanoclaw#55` shape, when only one session existed per group. It is still written so readers that haven't moved to the per-session subtree continue to work. New readers SHOULD use `sessions.<name>.session_id`. Old single-session files are accepted on read — register-session.py adds the `sessions` subtree without dropping the top-level field, so the migration is in-place and idempotent.
 
-**Other writers on this file** must take `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for the duration of their read-modify-write cycle. Without the shared lock, concurrent updates clobber each other.
+**Other writers on this file** must take `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for the duration of their read-modify-write cycle. Current participants: `jbaruch/nanoclaw-admin: tessl__heartbeat` (writes `last_seen`) and `jbaruch/nanoclaw-admin: tessl__check-email` (writes `seen_email_ids`, `pending_response`, `muted_threads`). Without the shared lock, concurrent updates clobber each other.
 
 ### `/tmp/session_bootstrapped`
 
@@ -37,6 +37,6 @@ Plain-text sentinel. One line: the value of `$CLAUDE_SESSION_ID` from the run th
 
 `session-state.json` carries `schema_version: 1` at the top level. v1 is the current canonical shape: `schema_version` + `sessions.<name>` subtree + back-compat top-level `session_id`. Files written before this field existed are read-tolerated by `register-session.py` (the owner skill) and silently upgraded to v1 on the next write — owner-skill migration per `jbaruch/coding-policy: stateful-artifacts`.
 
-Reader skills MUST treat an unknown future version (`schema_version > 1`) as "no usable prior state" and let the next `register-session.py` run perform the upgrade — never migrate from a reader.
+Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-admin: tessl__check-email`) MUST treat an unknown future version (`schema_version > 1`) as "no usable prior state" and let the next `register-session.py` run perform the upgrade — never migrate from a reader.
 
 `/tmp/session_bootstrapped` is a single-line plain-text sentinel; it has no envelope shape to version. The only behavioral contract is "non-empty content = bootstrap was completed for this `$CLAUDE_SESSION_ID`", and that contract is stable.
