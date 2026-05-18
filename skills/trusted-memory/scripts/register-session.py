@@ -37,10 +37,10 @@ unreadable (locked, early-boot, etc.). The back-compat mirror still
 records `None`, which downstream consumers tolerate.
 
 Concurrency: state-file writes use an fcntl.LOCK_EX on
-`<STATE_PATH>.lock` around the read-modify-write cycle. heartbeat-
-precheck.py and check-email writers use the same lock file; without
-coordination a concurrent `last_seen` stamp or `pending_response`
-update can clobber this script's `sessions.<name>` write.
+`<STATE_PATH>.lock` around the read-modify-write cycle. Other
+writers on this file must take the same lock; without coordination
+a concurrent update can clobber this script's `sessions.<name>`
+write.
 """
 import fcntl
 import json
@@ -53,9 +53,8 @@ from datetime import datetime, timezone
 from typing import Optional
 
 # messages.db can be locked by the orchestrator's writer during bootstrap;
-# without a timeout sqlite3.connect waits forever. Other admin-tile
-# scripts (heartbeat-precheck / heartbeat-checks) use 5–15s. 10s keeps
-# the bootstrap flow responsive while still riding out short contention.
+# without a timeout sqlite3.connect waits forever. 10s keeps the bootstrap
+# flow responsive while still riding out short contention.
 MESSAGES_DB_TIMEOUT_SECONDS = 10
 
 MESSAGES_DB = "/workspace/store/messages.db"
@@ -141,12 +140,9 @@ def main() -> None:
     claude_session_id = os.environ.get("CLAUDE_SESSION_ID", "")
 
     # Hold LOCK_EX on STATE_LOCK_PATH for the entire read-modify-write
-    # cycle. Other writers on this file — heartbeat-precheck's
-    # last_seen stamp, check-email's seen_email_ids append, default-
-    # session pending_response/muted_threads updates — use (or will
-    # use) the same lock file. Without coordination, our sessions.<name>
-    # write can clobber a concurrent last_seen update, or vice versa.
-    # heartbeat-precheck.py documents the shared-lock convention.
+    # cycle. Other writers on this file must use the same lock; without
+    # coordination, our sessions.<name> write can clobber a concurrent
+    # update, or vice versa.
     try:
         lock_f = open(STATE_LOCK_PATH, "a+")
     except OSError as e:

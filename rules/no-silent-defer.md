@@ -28,12 +28,12 @@ If none exist, you are not deferring — you are skipping. Mark the work skipped
 
 ## What to do instead
 
-Do not stamp success fields (no `last_verified`, no `status: open` for unanalyzed entries, no `_verified_this_run: true`). Use the skill's documented incomplete-pass mechanism (e.g. `check-cfps`'s `cfp-pending.json` + `_verify_skipped: true`, with a structured report to the caller). Surface the skip to the owner via `mcp__nanoclaw__send_message` in the same run — discovering a skip weeks later in a state file is the failure mode this rule prevents.
+Do not stamp success fields (no `last_verified`, no `status: open` for unanalyzed entries, no `_verified_this_run: true`). Use the skill's documented incomplete-pass mechanism (e.g. a `*-pending.json` artifact with `_verify_skipped: true`, paired with a structured report to the caller). Surface the skip to the owner via `mcp__nanoclaw__send_message` in the same run — discovering a skip weeks later in a state file is the failure mode this rule prevents.
 
 ## Skip-summary file contract
 
-A skill that defers or skips writes a structured summary at `/workspace/group/.skip-summary-<tessl-skill-id>.json`, where `<tessl-skill-id>` is the full `tessl__<name>` identifier (e.g. `.skip-summary-tessl__check-cfps.json`). One file per skill — concurrent skips don't collide. The surfacer reads, sends via `mcp__nanoclaw__send_message`, and deletes. Owner skill writes; surfacer reads-sends-deletes — the file's existence is the deterministic signal across the call boundary, so prose enforcement of "remember to surface" can't slip under context pressure. Schema, field reference, lifecycle, pre-publish lint: `docs/skip-summary-schema.md`.
+A skill that defers or skips writes a structured summary at `/workspace/group/.skip-summary-<tessl-skill-id>.json`, where `<tessl-skill-id>` is the full `tessl__<name>` identifier. One file per skill — concurrent skips don't collide. The surfacer reads, sends via `mcp__nanoclaw__send_message`, and deletes. Owner skill writes; surfacer reads-sends-deletes — the file's existence is the deterministic signal across the call boundary, so prose enforcement of "remember to surface" can't slip under context pressure. Schema, field reference, lifecycle, pre-publish lint: `docs/skip-summary-schema.md`.
 
 ## Applies to
 
-Every skill that writes state with verification or completion fields — directly `check-cfps`, `nightly-housekeeping`, `check-orders`, `check-email`, `heartbeat`, but the rule is general: any "verified at" / "status: complete" / "last_checked" field is a claim of work done, forbidden when the work wasn't.
+Every skill that writes state with verification or completion fields. The rule is general: any "verified at" / "status: complete" / "last_checked" field is a claim of work done, forbidden when the work wasn't.
