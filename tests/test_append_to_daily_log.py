@@ -357,16 +357,14 @@ def test_trusted_target_resolves_to_trusted_path(append_module, capsys):
 
 
 def test_header_matches_archive_helper_regex(append_module, capsys):
-    """archive-helper.py in nanoclaw-admin/skills/nightly-housekeeping
-    archives both /workspace/group/memory/daily/ AND /workspace/trusted/
-    memory/daily/ via a daily-header regex `^# Daily Summary —
-    \\d{4}-\\d{2}-\\d{2}\\s*$` (the `\\s*$` tolerates trailing
-    whitespace, common when an editor strips/preserves trailing
-    blanks asymmetrically). If our header diverges, archive-helper
-    silently skips the file and daily logs accumulate forever in
-    daily/. Lock the canonical wording in so a future "let's tighten
-    the header style" change can't regress this without breaking the
-    test."""
+    """The nightly archive pipeline matches daily files via the regex
+    `^# Daily Summary — \\d{4}-\\d{2}-\\d{2}\\s*$` (the `\\s*$`
+    tolerates trailing whitespace, common when an editor strips/
+    preserves trailing blanks asymmetrically). If our header diverges
+    from this canonical wording, archival silently skips the file and
+    daily logs accumulate forever in `daily/`. Lock the canonical
+    wording in so a future "let's tighten the header style" change
+    can't regress this without breaking the test."""
     import re
 
     module, group_dir, _ = append_module

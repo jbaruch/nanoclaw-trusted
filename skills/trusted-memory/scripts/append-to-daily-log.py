@@ -41,10 +41,8 @@ Behavior:
       `- HH:MM UTC — message` vs trusted: `- HH:MM UTC [chat] —
       message`) in the SKILL where the chat-name resolution happens.
     - If the target file is absent the helper creates it with a
-      `# Daily Summary — YYYY-MM-DD\n\n` header (matches the regex
-      consumed by `nanoclaw-admin/skills/nightly-housekeeping/scripts/
-      archive-helper.py:57` so files are picked up by nightly archival),
-      then appends the lines.
+      `# Daily Summary — YYYY-MM-DD\n\n` header (the canonical header
+      the nightly archive pipeline recognises), then appends the lines.
     - Lines are appended at the END of the file regardless of their
       timestamp prefix. If the helper detects the new lines' first
       timestamp is BEFORE the existing file's last timestamp it logs
@@ -93,13 +91,11 @@ from typing import List, Optional
 
 GROUP_DAILY_DIR = "/workspace/group/memory/daily"
 TRUSTED_DAILY_DIR = "/workspace/trusted/memory/daily"
-# `# Daily Summary — YYYY-MM-DD` is the canonical header — matches
-# the regex in `nanoclaw-admin/skills/nightly-housekeeping/scripts/
-# archive-helper.py:57`. The trusted-tile and admin-tile daily files
-# share the same archive pipeline, so the helper that creates them
-# must produce a header the archiver recognises — otherwise
-# `archive-helper.py archive-daily` would skip these files and they'd
-# accumulate forever in `daily/`. Em dash is U+2014.
+# `# Daily Summary — YYYY-MM-DD` is the canonical header the nightly
+# archive pipeline recognises. The helper that creates daily files
+# must produce this exact header — otherwise the archiver would skip
+# these files and they'd accumulate forever in `daily/`. Em dash is
+# U+2014.
 DAILY_HEADER_TEMPLATE = "# Daily Summary — {date}\n\n"
 ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # Match a leading `- HH:MM UTC` (with optional `[chat-name]` between
