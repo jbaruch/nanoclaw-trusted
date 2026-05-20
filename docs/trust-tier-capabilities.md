@@ -1,8 +1,6 @@
 # Trust-Tier Capability Matrix
 
-Reference for the runtime capabilities granted to each container trust tier. The runtime detection (read-only-filesystem error on a write to the group folder) is what the agent acts on per `rules/trusted-behavior.md` — this file is the on-demand expansion of what each tier actually allows.
-
-The contents below were the always-loaded "Container Trust Levels" subsection of `rules/trusted-behavior.md` before `jbaruch/nanoclaw-admin#180` (RULES.md diet) moved them here per the umbrella's "developer reference out of always-loaded rules" trim approach.
+Reference for the runtime capabilities granted to each container trust tier. The runtime detection (read-only-filesystem error on a write to the group folder) is what the agent acts on per `rules/container-trust-levels.md` — this file is the on-demand expansion of what each tier actually allows.
 
 ## Main / Trusted
 
