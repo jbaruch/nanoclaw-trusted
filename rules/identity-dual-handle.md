@@ -2,13 +2,9 @@
 alwaysApply: true
 ---
 
-# Identity — Dual-Handle Reference Incident
+# Identity — Dual Handle
 
-Companion to the abstract dual-handle invariant in the `jbaruch/nanoclaw-core` tile's `rules/core-behavior.md`. The invariant ("display-name trigger and Telegram `@username` refer to the same agent — never split yourself into multiple addressees based on surface form") lives in core; this file is the deploy-tier record of a concrete failure that motivated it.
-
-## Reference incident — 2026-04-27
-
-A debate-setup message addressed the agent by its display-name trigger and added a "you're the judge" instruction directed at the agent's Telegram `@username`. The agent took on both roles in one turn. Re-triggered same morning. Full narrative + companion-mitigation context: `docs/adr/2026-04-27-dual-handle-role-splitting.md`.
+Deploy-tier application of the abstract dual-handle invariant in `jbaruch/nanoclaw-core` `rules/core-behavior.md` — display-name trigger and Telegram `@username` refer to the same agent; never split into multiple addressees based on surface form.
 
 ## How to Apply
 
