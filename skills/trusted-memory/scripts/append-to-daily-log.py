@@ -49,28 +49,37 @@ Behavior:
       a one-line stderr warning ("out-of-order") but still appends —
       cross-group writers and clock-skew retries can legitimately
       arrive late, and silent reorder would mask actual bugs.
+    - Per `jbaruch/nanoclaw#365`: candidate lines are whitespace-
+      normalized (via `memory_write.normalize_for_comparison`) and
+      compared against the existing file's normalized lines. Lines
+      whose normalized form already appears in the file — or that
+      duplicate an earlier line in the same batch — are skipped at
+      write time. All-duplicates is a valid no-op (rc 0, no write,
+      `appended_lines: 0`). Existing on-disk lines are NEVER touched
+      — dedup applies only to new appends.
 
 Output (stdout, single-line JSON):
     {
       "path": "<resolved daily-file path>",
-      "appended_lines": <int>,
+      "appended_lines": <int>,            # kept after dedup
+      "dropped_duplicates": <int>,        # filtered as duplicates
       "final_line_count": <int>,
       "created": <bool>,
       "out_of_order": <bool>
     }
 
 Exit codes:
-    0  success
+    0  success (including all-duplicates no-op)
     1  IO failure (lock acquisition / read / write)
     2  usage / validation error (no lines, bad --target, bad --date,
        both --line and --lines-file with conflicting content)
 
-Atomic write: tempfile in same directory → flush → fsync → os.replace,
-matching `register-session.atomic_write_text` so file mode is
-preserved across overwrites. Tempfile cleanup is best-effort on
-handled OSError; an OS-level crash (SIGKILL, OOM) between flush and
-rename can still leave a `.<name>.tmp` orphan that the next call
-would overwrite, since `mkstemp` regenerates the suffix per call.
+Atomic write: delegated to `memory_write.write_atomic` (tempfile →
+flush → fsync → chmod → os.replace, preserving file mode across
+overwrites). Tempfile cleanup is best-effort on handled OSError; an
+OS-level crash (SIGKILL, OOM) between flush and rename can still
+leave a `.<name>.tmp` orphan that the next call would overwrite,
+since `mkstemp` regenerates the suffix per call.
 
 Lock file: `<daily-file>.lock` is created on demand and never removed
 — per-day file leaks ~0.1 KiB per group per day, far below worth
@@ -84,10 +93,20 @@ import json
 import os
 import re
 import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
+
+# `memory_write` is a sibling module in the same `scripts/` directory.
+# Loading the script by its kebab-case filename via importlib doesn't
+# put that directory on sys.path the way a normal `python foo.py` run
+# does, so add it explicitly before the import — the in-process tests
+# rely on this and so does the production CLI invocation.
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from memory_write import dedup_filter, write_atomic  # noqa: E402
 
 GROUP_DAILY_DIR = "/workspace/group/memory/daily"
 TRUSTED_DAILY_DIR = "/workspace/trusted/memory/daily"
@@ -148,32 +167,6 @@ def _first_timestamp(lines: List[str]) -> Optional[int]:
     return None
 
 
-def atomic_write_text(path: Path, content: str, default_mode: int = 0o644) -> None:
-    """Tempfile + fsync + os.replace, preserving the existing file
-    mode when overwriting. Caller handles OSError; this function only
-    cleans up the tempfile on failure."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        target_mode = os.stat(path).st_mode & 0o777
-    except FileNotFoundError:
-        target_mode = default_mode
-
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(content)
-            f.flush()
-            os.fsync(f.fileno())
-        os.chmod(tmp, target_mode)
-        os.replace(tmp, path)
-    except OSError:
-        try:
-            os.unlink(tmp)
-        except FileNotFoundError:
-            pass
-        raise
-
-
 def _collect_lines(args, parser) -> List[str]:
     """Resolve `--line`, `--lines-file`, or stdin into the final list.
     Validates non-empty result. Lines are stripped of trailing
@@ -213,9 +206,18 @@ def _collect_lines(args, parser) -> List[str]:
 
 
 def _append(*, daily_file: Path, lines: List[str]) -> dict:
-    """Read existing content (or initialize header), append the new
-    lines, atomic-write back. Caller MUST hold LOCK_EX before calling.
-    Returns the JSON-serializable result dict."""
+    """Read existing content (or initialize header), filter out lines
+    that duplicate an existing entry (whitespace-normalized match),
+    append the survivors, atomic-write back. Caller MUST hold LOCK_EX
+    before calling.
+
+    Returns the JSON-serializable result dict. When every candidate
+    line is already present the file is left untouched: no atomic
+    write fires, `created=False`, `appended_lines=0`,
+    `dropped_duplicates=len(lines)`. That keeps idempotent retries
+    cheap and prevents an empty atomic-write churn cycle from
+    bumping mtime/inode on a file that didn't actually change.
+    """
     if daily_file.exists():
         existing = daily_file.read_text(encoding="utf-8")
         created = False
@@ -223,8 +225,28 @@ def _append(*, daily_file: Path, lines: List[str]) -> dict:
         existing = DAILY_HEADER_TEMPLATE.format(date=daily_file.stem)
         created = True
 
+    kept, dropped = dedup_filter(existing, lines, split="\n")
+    dropped_count = len(dropped)
+
+    if not kept:
+        # All candidate lines were already present (or the batch
+        # collapsed to zero after within-batch dedup). Don't bump
+        # mtime / inode on a no-change call; just report the outcome.
+        # `created=False` even when the file didn't pre-exist, because
+        # we haven't actually written it — the would-be header text
+        # in `existing` is in-memory only.
+        final_line_count = existing.count("\n") if daily_file.exists() else 0
+        return {
+            "path": str(daily_file),
+            "appended_lines": 0,
+            "dropped_duplicates": dropped_count,
+            "final_line_count": final_line_count,
+            "created": False,
+            "out_of_order": False,
+        }
+
     last_ts = _last_timestamp(existing)
-    first_new_ts = _first_timestamp(lines)
+    first_new_ts = _first_timestamp(kept)
     out_of_order = last_ts is not None and first_new_ts is not None and first_new_ts < last_ts
 
     # Ensure exactly one blank line before the appended block, and a
@@ -234,14 +256,15 @@ def _append(*, daily_file: Path, lines: List[str]) -> dict:
         existing += "\n"
     if existing and not existing.endswith("\n\n"):
         existing += "\n"
-    new_content = existing + "\n".join(lines) + "\n"
+    new_content = existing + "\n".join(kept) + "\n"
 
-    atomic_write_text(daily_file, new_content)
+    write_atomic(daily_file, new_content)
 
     final_line_count = new_content.count("\n")
     return {
         "path": str(daily_file),
-        "appended_lines": len(lines),
+        "appended_lines": len(kept),
+        "dropped_duplicates": dropped_count,
         "final_line_count": final_line_count,
         "created": created,
         "out_of_order": out_of_order,
