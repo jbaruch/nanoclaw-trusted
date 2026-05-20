@@ -4,7 +4,22 @@ alwaysApply: true
 
 # Composio vs Agents
 
-- Composio directly: single API calls, read operations, simple data fetches
-- Spawn `Agent`: multi-step workflows, judgment across multiple tool calls, branching logic
+## Direct Composio call
 
-Rule of thumb: one tool call with a clear answer → Composio. Think between steps → Agent.
+Use a direct Composio tool invocation when:
+
+- The task is a single API call
+- The operation is a read or simple data fetch
+- The result is the answer (no further reasoning needed)
+
+## Spawned Agent
+
+Spawn an `Agent` when:
+
+- The task takes multi-step workflow
+- Judgment is required across multiple tool calls
+- The control flow branches based on intermediate results
+
+## Rule of thumb
+
+One tool call with a clear answer → Composio. Think between steps → Agent.
