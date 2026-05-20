@@ -5,14 +5,16 @@ applyTo: "** — when learning something new worth recording in daily_discoverie
 
 # Daily Discoveries Rule
 
-When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately record it via the `append-daily-discovery.py` script:
+When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately record it via the `skills/trusted-memory/scripts/append-daily-discovery.py` script:
 
 ```
-python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/append-daily-discovery.py \
+python3 <resolved-path>/append-daily-discovery.py \
     --what "<one-line description of what you learned>" \
     --context "<how you found out / what prompted this>" \
     --promote-to "<RUNBOOK.md | typed memory file + MEMORY.md index | unsure>"
 ```
+
+Resolve `<resolved-path>` to the tile's installed location in your container (the trusted-memory skill's runbook gives the exact directory; inside the running container it is `/home/node/.claude/skills/tessl__trusted-memory/scripts/`).
 
 The script appends a block in this canonical shape to `/workspace/trusted/memory/daily_discoveries.md`:
 
