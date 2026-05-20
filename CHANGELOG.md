@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Rules — 9 task-context rules switched from `alwaysApply: true` to conditional `applyTo:` (`jbaruch/nanoclaw#552`)
+
+The CLAUDE.md @-include chain was loading 28 always-on rules into every agent turn (~932 lines, ~12-15K tokens baseline). Per `jbaruch/coding-policy: rule-frontmatter`'s conditional-rules contract, rules whose prescriptions only fire in specific task contexts should set `alwaysApply: false` and add an `applyTo:` clause so the agent's model loads them on-demand rather than carrying the full body in baseline. Nine trusted-tile rules qualified for the conversion:
+
+- `messages-db-schema` — load when querying `messages.db` or referencing its column names
+- `github-data-via-gh` — load when reading GitHub data via the `gh` CLI or related Composio tooling
+- `wiki-awareness` — load when working with `/workspace/trusted/wiki/` or its raw sources
+- `installed-content-immutable` — load when about to write under `/home/node/.claude/` or installed-tile paths
+- `no-orphan-tasks` — load when creating, rescheduling, or cancelling `scheduled_tasks` rows
+- `memory-file-locations` — load when writing or reading typed memory files or `memory/` subdirectory contents
+- `compaction-aware-summaries` — load at compaction time or when authoring post-compaction summaries
+- `ground-truth-trusted` — load when answering substantive trusted-tier questions or producing claims that need verification
+- `daily-discoveries-rule` — load when learning something new worth recording in `daily_discoveries.md`
+
+Each conditional rule keeps its body verbatim — only the frontmatter changed (`alwaysApply: false` + `applyTo: "** — <natural-language clause>"`). The glob is `**` because task-context scoping doesn't bind to a file set; the natural-language clause carries the discriminator per `rule-frontmatter`'s "the model reads both halves" guidance. Six previously-implicit always-on rules (`session-bootstrap`, `verification-protocol`, `proactive-fact-saving`, `no-silent-defer`, `identity-dual-handle`, `local-context-anchoring`) now have explicit `"alwaysApply": true` in `tile.json` to match their rule-file frontmatter — closing the split-value inconsistency `rule-frontmatter` warns against. The remaining 12 trusted-tile rules (Telegram protocol, compose-vs-agents, container trust, global memory, skills policy, etc.) stay always-on as before because they govern decision quality or chat hygiene on every turn. README rules table gains a `Scope` column reflecting always-on vs conditional. Issue `#552` targets a 40-50% baseline reduction across the full chain; this PR is the trusted-tile portion, with `progress-updates` in `nanoclaw-core` covered separately.
+
 ### Rules — structural split of `trusted-behavior` per `coding-policy: context-artifacts`
 
 Split the 13-H2 `trusted-behavior.md` into 11 single-concept rules per `Rules Are Prose → One concept per rule file`. Dropped two sections that duplicated already-loaded rules:

@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when creating, rescheduling, or cancelling scheduled_tasks rows"
 ---
 
 # No Orphan Scheduled Tasks

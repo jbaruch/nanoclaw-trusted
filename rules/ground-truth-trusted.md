@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when answering substantive trusted-tier questions or producing claims that need verification"
 ---
 
 # Ground Truth — Trusted Extensions

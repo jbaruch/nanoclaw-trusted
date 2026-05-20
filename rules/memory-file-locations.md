@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when writing or reading typed memory files (user_/feedback_/project_/reference_*.md) or memory/ subdirectory contents"
 ---
 
 # Memory File Locations

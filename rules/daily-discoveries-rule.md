@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when learning something new worth recording in daily_discoveries.md"
 ---
 
 # Daily Discoveries Rule

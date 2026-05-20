@@ -6,7 +6,8 @@
   "private": false,
   "rules": {
     "daily-discoveries-rule": {
-      "rules": "rules/daily-discoveries-rule.md"
+      "rules": "rules/daily-discoveries-rule.md",
+      "alwaysApply": false
     },
     "identity-compaction-recovery": {
       "rules": "rules/identity-compaction-recovery.md",
@@ -53,46 +54,60 @@
       "alwaysApply": true
     },
     "no-orphan-tasks": {
-      "rules": "rules/no-orphan-tasks.md"
+      "rules": "rules/no-orphan-tasks.md",
+      "alwaysApply": false
     },
     "ground-truth-trusted": {
-      "rules": "rules/ground-truth-trusted.md"
+      "rules": "rules/ground-truth-trusted.md",
+      "alwaysApply": false
     },
     "session-bootstrap": {
-      "rules": "rules/session-bootstrap.md"
+      "rules": "rules/session-bootstrap.md",
+      "alwaysApply": true
     },
     "verification-protocol": {
-      "rules": "rules/verification-protocol.md"
+      "rules": "rules/verification-protocol.md",
+      "alwaysApply": true
     },
     "wiki-awareness": {
-      "rules": "rules/wiki-awareness.md"
+      "rules": "rules/wiki-awareness.md",
+      "alwaysApply": false
     },
     "compaction-aware-summaries": {
-      "rules": "rules/compaction-aware-summaries.md"
+      "rules": "rules/compaction-aware-summaries.md",
+      "alwaysApply": false
     },
     "proactive-fact-saving": {
-      "rules": "rules/proactive-fact-saving.md"
+      "rules": "rules/proactive-fact-saving.md",
+      "alwaysApply": true
     },
     "memory-file-locations": {
-      "rules": "rules/memory-file-locations.md"
+      "rules": "rules/memory-file-locations.md",
+      "alwaysApply": false
     },
     "no-silent-defer": {
-      "rules": "rules/no-silent-defer.md"
+      "rules": "rules/no-silent-defer.md",
+      "alwaysApply": true
     },
     "installed-content-immutable": {
-      "rules": "rules/installed-content-immutable.md"
+      "rules": "rules/installed-content-immutable.md",
+      "alwaysApply": false
     },
     "identity-dual-handle": {
-      "rules": "rules/identity-dual-handle.md"
+      "rules": "rules/identity-dual-handle.md",
+      "alwaysApply": true
     },
     "local-context-anchoring": {
-      "rules": "rules/local-context-anchoring.md"
+      "rules": "rules/local-context-anchoring.md",
+      "alwaysApply": true
     },
     "github-data-via-gh": {
-      "rules": "rules/github-data-via-gh.md"
+      "rules": "rules/github-data-via-gh.md",
+      "alwaysApply": false
     },
     "messages-db-schema": {
-      "rules": "rules/messages-db-schema.md"
+      "rules": "rules/messages-db-schema.md",
+      "alwaysApply": false
     }
   },
   "skills": {

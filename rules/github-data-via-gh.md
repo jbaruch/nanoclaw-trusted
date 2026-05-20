@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when reading GitHub data via the gh CLI or related Composio GitHub tooling"
 ---
 
 # GitHub Data via `gh`

@@ -12,34 +12,36 @@ tessl install jbaruch/nanoclaw-trusted
 
 ## Rules
 
-| Rule | Summary |
-|------|---------|
-| [compaction-aware-summaries](rules/compaction-aware-summaries.md) | When Claude Code compacts context, the summary must preserve information that cannot be recovered from files alone. |
-| [daily-discoveries-rule](rules/daily-discoveries-rule.md) | When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately write it to `/workspace/trusted/memory/daily_discoveries.md`: |
-| [github-data-via-gh](rules/github-data-via-gh.md) | GitHub state — PRs, issues, repo contents, workflow runs — comes from the `gh` CLI inside the container (orchestrator forwards `GITHUB_TOKEN` per `jbaruch/nanoclaw#565`). `curl https://api.github.com/...` is still wrong (unauthenticated); Composio `GITHUB_*` tools remain as fallback only. |
-| [ground-truth-trusted](rules/ground-truth-trusted.md) | Extends the core ground-truth rule with verification methods and computation available to trusted containers. |
-| [identity-dual-handle](rules/identity-dual-handle.md) | Deploy-tier reference incident for the abstract dual-handle invariant in the `jbaruch/nanoclaw-core` tile's `rules/core-behavior.md`: a concrete failure where the agent split itself into two addressees because one message used both its display-name trigger AND its Telegram `@username`. |
-| [installed-content-immutable](rules/installed-content-immutable.md) | Installed skills and rules under `/home/node/.claude/skills/` and `/home/node/.claude/.tessl/` are kernel-level read-only at runtime — `Write`/`Edit` against them returns `EROFS`. Real changes flow through the staging → promote → publish → update pipeline. |
-| [local-context-anchoring](rules/local-context-anchoring.md) | Anchor every relative time/place phrasing (`today` / `yesterday` / `now` / `here`, plus Russian equivalents) to the user's local frame from the orchestrator-injected `<context>` tag's `local_datetime` / `weekday` / `location_*` attrs — not the server clock and not UTC. |
-| [memory-file-locations](rules/memory-file-locations.md) | 1. **All typed memory files go in `/workspace/trusted/` root** — never in `/workspace/trusted/memory/`. The `memory/` subdirectory is ONLY for daily logs and daily_discoveries. |
-| [messages-db-schema](rules/messages-db-schema.md) | Authoritative `PRAGMA table_info` listing for the canonical `messages.db` tables — agents kept guessing column names (`trigger_word` vs real `trigger_pattern`) and hitting `no such column`. |
-| [no-orphan-tasks](rules/no-orphan-tasks.md) | Before scheduling any new recurring task, check: |
-| [no-silent-defer](rules/no-silent-defer.md) | Defer is allowed only when there is a concrete handoff that will actually do the deferred work. Otherwise it is a silent skip — and silent skips on something the owner intended to act on are material harm, not noise. |
-| [proactive-fact-saving](rules/proactive-fact-saving.md) | Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention. |
-| [session-bootstrap](rules/session-bootstrap.md) | Then write the sentinel: `echo "done" > /tmp/session_bootstrapped` |
-| [async-tasks-extended](rules/async-tasks-extended.md) | Trusted-tier extension of the core async-tasks protocol — reaction upgrade, background-agent spawn, scheduled-task silence, post-compaction restart. |
-| [composio-vs-agents](rules/composio-vs-agents.md) | Composio for single API calls / read ops; spawn `Agent` for multi-step workflows with judgment between steps. |
-| [container-trust-levels](rules/container-trust-levels.md) | Runtime detection is the contract: read-only-filesystem error = untrusted container, don't retry. Full capability matrix in `docs/trust-tier-capabilities.md`. |
-| [context-bootstrap-bg-agents](rules/context-bootstrap-bg-agents.md) | Background-agent prompts must include workspace context (paths, send-message tool, Telegram HTML formatting). |
-| [duplicate-prevention](rules/duplicate-prevention.md) | Before creating any resource, check if it exists. Duplicate found → update existing. |
-| [global-memory](rules/global-memory.md) | `/workspace/global/CLAUDE.md` for cross-group facts. Only update when explicitly asked. |
-| [identity-compaction-recovery](rules/identity-compaction-recovery.md) | After context compaction, re-read `/workspace/global/SOUL.md` — your persona context is gone. |
-| [pending-response-tracking](rules/pending-response-tracking.md) | Stamp `session-state.json` with `pending_response`, do the work, send, clear. Heartbeat picks up interrupted responses. |
-| [proactive-participation](rules/proactive-participation.md) | In trusted groups you're a participant — chime in when useful. Default-silence still applies; a reaction alone is complete participation. |
-| [reply-threading](rules/reply-threading.md) | Always reply-thread user messages using `reply_to`. Required for heartbeat to track unanswered messages. |
-| [skills-policy](rules/skills-policy.md) | If a skill exists, invoke it with `Skill(skill: "name")`. Never read SKILL.md files manually or paste content into Agent prompts. No improvising. |
-| [verification-protocol](rules/verification-protocol.md) | After these actions, verify independently before confirming to the user: |
-| [wiki-awareness](rules/wiki-awareness.md) | A persistent personal wiki lives at `/workspace/trusted/wiki/` with raw sources at `/workspace/trusted/sources/`. |
+Always-on rules are loaded into every turn's context. Conditional rules are loaded by the agent's model when their `applyTo:` clause matches the current task — kept off baseline context otherwise per `jbaruch/coding-policy: rule-frontmatter`.
+
+| Rule | Scope | Summary |
+|------|-------|---------|
+| [compaction-aware-summaries](rules/compaction-aware-summaries.md) | conditional | When Claude Code compacts context, the summary must preserve information that cannot be recovered from files alone. |
+| [daily-discoveries-rule](rules/daily-discoveries-rule.md) | conditional | When you learn something new and operationally important — a workflow, where something lives, how something works, a tool to use for a specific task — immediately write it to `/workspace/trusted/memory/daily_discoveries.md`: |
+| [github-data-via-gh](rules/github-data-via-gh.md) | conditional | GitHub state — PRs, issues, repo contents, workflow runs — comes from the `gh` CLI inside the container (orchestrator forwards `GITHUB_TOKEN` per `jbaruch/nanoclaw#565`). `curl https://api.github.com/...` is still wrong (unauthenticated); Composio `GITHUB_*` tools remain as fallback only. |
+| [ground-truth-trusted](rules/ground-truth-trusted.md) | conditional | Extends the core ground-truth rule with verification methods and computation available to trusted containers. |
+| [identity-dual-handle](rules/identity-dual-handle.md) | always-on | Deploy-tier reference incident for the abstract dual-handle invariant in the `jbaruch/nanoclaw-core` tile's `rules/core-behavior.md`: a concrete failure where the agent split itself into two addressees because one message used both its display-name trigger AND its Telegram `@username`. |
+| [installed-content-immutable](rules/installed-content-immutable.md) | conditional | Installed skills and rules under `/home/node/.claude/skills/` and `/home/node/.claude/.tessl/` are kernel-level read-only at runtime — `Write`/`Edit` against them returns `EROFS`. Real changes flow through the staging → promote → publish → update pipeline. |
+| [local-context-anchoring](rules/local-context-anchoring.md) | always-on | Anchor every relative time/place phrasing (`today` / `yesterday` / `now` / `here`, plus Russian equivalents) to the user's local frame from the orchestrator-injected `<context>` tag's `local_datetime` / `weekday` / `location_*` attrs — not the server clock and not UTC. |
+| [memory-file-locations](rules/memory-file-locations.md) | conditional | 1. **All typed memory files go in `/workspace/trusted/` root** — never in `/workspace/trusted/memory/`. The `memory/` subdirectory is ONLY for daily logs and daily_discoveries. |
+| [messages-db-schema](rules/messages-db-schema.md) | conditional | Authoritative `PRAGMA table_info` listing for the canonical `messages.db` tables — agents kept guessing column names (`trigger_word` vs real `trigger_pattern`) and hitting `no such column`. |
+| [no-orphan-tasks](rules/no-orphan-tasks.md) | conditional | Before scheduling any new recurring task, check: |
+| [no-silent-defer](rules/no-silent-defer.md) | always-on | Defer is allowed only when there is a concrete handoff that will actually do the deferred work. Otherwise it is a silent skip — and silent skips on something the owner intended to act on are material harm, not noise. |
+| [proactive-fact-saving](rules/proactive-fact-saving.md) | always-on | Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention. |
+| [session-bootstrap](rules/session-bootstrap.md) | always-on | Then write the sentinel: `echo "done" > /tmp/session_bootstrapped` |
+| [async-tasks-extended](rules/async-tasks-extended.md) | always-on | Trusted-tier extension of the core async-tasks protocol — reaction upgrade, background-agent spawn, scheduled-task silence, post-compaction restart. |
+| [composio-vs-agents](rules/composio-vs-agents.md) | always-on | Composio for single API calls / read ops; spawn `Agent` for multi-step workflows with judgment between steps. |
+| [container-trust-levels](rules/container-trust-levels.md) | always-on | Runtime detection is the contract: read-only-filesystem error = untrusted container, don't retry. Full capability matrix in `docs/trust-tier-capabilities.md`. |
+| [context-bootstrap-bg-agents](rules/context-bootstrap-bg-agents.md) | always-on | Background-agent prompts must include workspace context (paths, send-message tool, Telegram HTML formatting). |
+| [duplicate-prevention](rules/duplicate-prevention.md) | always-on | Before creating any resource, check if it exists. Duplicate found → update existing. |
+| [global-memory](rules/global-memory.md) | always-on | `/workspace/global/CLAUDE.md` for cross-group facts. Only update when explicitly asked. |
+| [identity-compaction-recovery](rules/identity-compaction-recovery.md) | always-on | After context compaction, re-read `/workspace/global/SOUL.md` — your persona context is gone. |
+| [pending-response-tracking](rules/pending-response-tracking.md) | always-on | Stamp `session-state.json` with `pending_response`, do the work, send, clear. Heartbeat picks up interrupted responses. |
+| [proactive-participation](rules/proactive-participation.md) | always-on | In trusted groups you're a participant — chime in when useful. Default-silence still applies; a reaction alone is complete participation. |
+| [reply-threading](rules/reply-threading.md) | always-on | Always reply-thread user messages using `reply_to`. Required for heartbeat to track unanswered messages. |
+| [skills-policy](rules/skills-policy.md) | always-on | If a skill exists, invoke it with `Skill(skill: "name")`. Never read SKILL.md files manually or paste content into Agent prompts. No improvising. |
+| [verification-protocol](rules/verification-protocol.md) | always-on | After these actions, verify independently before confirming to the user: |
+| [wiki-awareness](rules/wiki-awareness.md) | conditional | A persistent personal wiki lives at `/workspace/trusted/wiki/` with raw sources at `/workspace/trusted/sources/`. |
 
 ## Skills
 
