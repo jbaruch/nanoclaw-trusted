@@ -8,8 +8,38 @@
     "daily-discoveries-rule": {
       "rules": "rules/daily-discoveries-rule.md"
     },
-    "trusted-behavior": {
-      "rules": "rules/trusted-behavior.md"
+    "identity-compaction-recovery": {
+      "rules": "rules/identity-compaction-recovery.md"
+    },
+    "async-tasks-extended": {
+      "rules": "rules/async-tasks-extended.md"
+    },
+    "skills-policy": {
+      "rules": "rules/skills-policy.md"
+    },
+    "composio-vs-agents": {
+      "rules": "rules/composio-vs-agents.md"
+    },
+    "proactive-participation": {
+      "rules": "rules/proactive-participation.md"
+    },
+    "reply-threading": {
+      "rules": "rules/reply-threading.md"
+    },
+    "context-bootstrap-bg-agents": {
+      "rules": "rules/context-bootstrap-bg-agents.md"
+    },
+    "container-trust-levels": {
+      "rules": "rules/container-trust-levels.md"
+    },
+    "global-memory": {
+      "rules": "rules/global-memory.md"
+    },
+    "duplicate-prevention": {
+      "rules": "rules/duplicate-prevention.md"
+    },
+    "pending-response-tracking": {
+      "rules": "rules/pending-response-tracking.md"
     },
     "no-orphan-tasks": {
       "rules": "rules/no-orphan-tasks.md"

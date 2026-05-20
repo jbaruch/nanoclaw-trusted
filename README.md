@@ -27,7 +27,17 @@ tessl install jbaruch/nanoclaw-trusted
 | [no-silent-defer](rules/no-silent-defer.md) | Defer is allowed only when there is a concrete handoff that will actually do the deferred work. Otherwise it is a silent skip — and silent skips on something the owner intended to act on are material harm, not noise. |
 | [proactive-fact-saving](rules/proactive-fact-saving.md) | Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention. |
 | [session-bootstrap](rules/session-bootstrap.md) | Then write the sentinel: `echo "done" > /tmp/session_bootstrapped` |
-| [trusted-behavior](rules/trusted-behavior.md) | Extends core-behavior with additional rules for trusted and main containers. Everything in core still applies — this adds to it. |
+| [async-tasks-extended](rules/async-tasks-extended.md) | Trusted-tier extension of the core async-tasks protocol — reaction upgrade, background-agent spawn, scheduled-task silence, post-compaction restart. |
+| [composio-vs-agents](rules/composio-vs-agents.md) | Composio for single API calls / read ops; spawn `Agent` for multi-step workflows with judgment between steps. |
+| [container-trust-levels](rules/container-trust-levels.md) | Runtime detection is the contract: read-only-filesystem error = untrusted container, don't retry. Full capability matrix in `docs/trust-tier-capabilities.md`. |
+| [context-bootstrap-bg-agents](rules/context-bootstrap-bg-agents.md) | Background-agent prompts must include workspace context (paths, send-message tool, Telegram HTML formatting). |
+| [duplicate-prevention](rules/duplicate-prevention.md) | Before creating any resource, check if it exists. Duplicate found → update existing. |
+| [global-memory](rules/global-memory.md) | `/workspace/global/CLAUDE.md` for cross-group facts. Only update when explicitly asked. |
+| [identity-compaction-recovery](rules/identity-compaction-recovery.md) | After context compaction, re-read `/workspace/global/SOUL.md` — your persona context is gone. |
+| [pending-response-tracking](rules/pending-response-tracking.md) | Stamp `session-state.json` with `pending_response`, do the work, send, clear. Heartbeat picks up interrupted responses. |
+| [proactive-participation](rules/proactive-participation.md) | In trusted groups you're a participant — chime in when useful. Default-silence still applies; a reaction alone is complete participation. |
+| [reply-threading](rules/reply-threading.md) | Always reply-thread user messages using `reply_to`. Required for heartbeat to track unanswered messages. |
+| [skills-policy](rules/skills-policy.md) | If a skill exists, invoke it with `Skill(skill: "name")`. Never read SKILL.md files manually or paste content into Agent prompts. No improvising. |
 | [verification-protocol](rules/verification-protocol.md) | After these actions, verify independently before confirming to the user: |
 | [wiki-awareness](rules/wiki-awareness.md) | A persistent personal wiki lives at `/workspace/trusted/wiki/` with raw sources at `/workspace/trusted/sources/`. |
 
