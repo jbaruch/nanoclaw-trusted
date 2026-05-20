@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when querying messages.db or referencing its column names"
 ---
 
 # messages.db Schema

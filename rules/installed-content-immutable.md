@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when about to write under /home/node/.claude/ or other installed-tile content paths"
 ---
 
 # Installed Content Is Immutable At Runtime

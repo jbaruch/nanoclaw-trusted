@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when working with the personal wiki under /workspace/trusted/wiki/ or its raw sources"
 ---
 
 # Wiki Awareness

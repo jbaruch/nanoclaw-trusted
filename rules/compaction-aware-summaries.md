@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — at compaction time or when authoring post-compaction summaries"
 ---
 
 # Compaction-Aware Summaries
