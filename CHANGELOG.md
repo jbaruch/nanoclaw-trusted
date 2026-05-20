@@ -23,7 +23,7 @@ New per-concept rules:
 - **duplicate-prevention** — check before create
 - **pending-response-tracking** — `session-state.json` lifecycle for interruption recovery
 
-`trusted-behavior.md` deleted (was 84 lines, all 13 sections distributed). Rule count: 16 → 25. Sync surfaces per `coding-policy: context-artifacts` Surface Sync: `tile.json` entry replaced with 11 new entries; README rules table extended.
+`trusted-behavior.md` deleted (was 83 lines; 11 of its 13 sections distributed, 2 dropped as duplicates of already-loaded rules). Rule count: 16 → 26. Sync surfaces per `coding-policy: context-artifacts` Surface Sync: `tile.json` entry removed and 11 new entries added; README rules table extended.
 
 ### Rules — conciseness pass per `coding-policy: context-writing-style` (tier 3)
 
