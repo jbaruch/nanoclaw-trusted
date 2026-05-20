@@ -47,10 +47,20 @@ import json
 import os
 import sqlite3
 import sys
-import tempfile
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
+
+# Sibling `memory_write` module — see the matching block in
+# `append-to-daily-log.py` for why sys.path needs explicit help when
+# the script is loaded via importlib (tests) or its hyphenated CLI
+# filename.
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from memory_write import write_atomic  # noqa: E402
 
 # messages.db can be locked by the orchestrator's writer during bootstrap;
 # without a timeout sqlite3.connect waits forever. 10s keeps the bootstrap
@@ -89,49 +99,13 @@ def read_session_id_from_db() -> Optional[str]:
         return None
 
 
-def atomic_write_text(path: str, content: str, default_mode: int = 0o644) -> None:
-    """Atomically replace `path`'s contents with `content`.
-
-    Tempfile in the same directory → write → flush → fsync → chmod (to
-    the target's existing mode, or `default_mode` if creating fresh) →
-    os.replace. Cleans up the tempfile on any failure so a crash mid-
-    write doesn't leave a stray `*.tmp` orphan next to the target.
-
-    The chmod step matters: NamedTemporaryFile defaults to 0600, which
-    would silently narrow shared state files (e.g. /workspace/group/*)
-    on the first write unless preserved.
-    """
-    dir_ = os.path.dirname(path) or "."
-    try:
-        target_mode = os.stat(path).st_mode & 0o777
-    except FileNotFoundError:
-        target_mode = default_mode
-
-    tmp_path: Optional[str] = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            "w", dir=dir_, delete=False, suffix=".tmp"
-        ) as tf:
-            tmp_path = tf.name
-            tf.write(content)
-            tf.flush()
-            os.fsync(tf.fileno())
-        os.chmod(tmp_path, target_mode)
-        os.replace(tmp_path, path)
-        tmp_path = None
-    finally:
-        if tmp_path is not None:
-            try:
-                os.unlink(tmp_path)
-            except OSError as e:
-                print(
-                    f"register-session: failed to clean up temp file {tmp_path}: {e}",
-                    file=sys.stderr,
-                )
-
-
 def atomic_write_json(path: str, data: dict) -> None:
-    atomic_write_text(path, json.dumps(data, indent=2))
+    """Thin wrapper that serializes `data` and delegates to the shared
+    `memory_write.write_atomic`. The atomic-write recipe (tempfile →
+    flush → fsync → chmod → os.replace, with mode preserved across
+    overwrites) lives in `memory_write.py` so every trusted-memory
+    writer uses the same implementation."""
+    write_atomic(Path(path), json.dumps(data, indent=2))
 
 
 def main() -> None:
@@ -242,7 +216,7 @@ def main() -> None:
         return
 
     try:
-        atomic_write_text(SENTINEL, claude_session_id)
+        write_atomic(Path(SENTINEL), claude_session_id)
     except OSError as e:
         print(
             f"register-session: failed to write sentinel {SENTINEL}: {e}",

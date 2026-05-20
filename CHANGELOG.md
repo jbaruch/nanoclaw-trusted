@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Skills — apply-time dedup + shared atomic-write helper for memory writes (`jbaruch/nanoclaw#365`)
+
+The `daily_discoveries.md` file, both daily-log targets, and (via the shared writer) `session-state.json` / the bootstrap sentinel previously had three slightly different inline `atomic_write_text` implementations and no dedup. The deer-flow review surfaced the symptom: rolling memory files grow unbounded because retries re-append the same line, and a partial write at the wrong moment could leave a half-written daily log.
+
+New `skills/trusted-memory/scripts/memory_write.py` is the single home for the writer recipe — tempfile → flush → fsync → chmod (preserving the target's existing mode across overwrites) → `os.replace` — plus `normalize_for_comparison` and `dedup_filter` for the apply-time dedup. `append-to-daily-log.py` and `register-session.py` both import from it now, replacing their private copies. New `append-daily-discovery.py` wraps the same primitives for the `daily_discoveries.md` block format (`## YYYY-MM-DD HH:MM UTC` + `**What:** / **Context:** / **Promote to:**` quartet), and the `daily-discoveries-rule` now points the agent at the script instead of the prior LLM-driven Read/Write flow.
+
+Dedup is whitespace-normalized (line endings, runs of whitespace, leading/trailing spaces) — semantic same-fact dedup across reworded entries is deliberately out of scope; the issue's deer-flow pattern only catches exact-byte duplicates that differ by whitespace. All-duplicate calls leave the file's mtime and inode untouched so idempotent retries don't churn the filesystem. Existing on-disk daily logs are never rewritten — the acceptance criterion ("no destructive migration") is enforced by a regression test asserting bit-for-bit content stability on the dedup-skip path.
+
+Tests: 16 new cases (helper `normalize_for_comparison` / `dedup_filter` / `write_atomic` paths including a SIGKILL-based smoke test that proves an interrupted write leaves the file at its pre-call content, never partial) + 4 new dedup cases on the daily-log script + 12 cases on the new discovery script. Existing 28 tests pass against the refactor. Sync surfaces: SKILL.md updated to mention the new `dropped_duplicates` field on the daily-log JSON and the dedup contract; `daily-discoveries-rule.md` updated to invoke the script; this CHANGELOG entry. No `tile.json` change — the helper module lives inside the existing `trusted-memory` skill and isn't a separately-published surface; the new script ships alongside its siblings.
+
 ### Rules — 9 task-context rules switched from `alwaysApply: true` to conditional `applyTo:` (`jbaruch/nanoclaw#552`)
 
 The CLAUDE.md @-include chain was loading 28 always-on rules into every agent turn (~932 lines, ~12-15K tokens baseline). Per `jbaruch/coding-policy: rule-frontmatter`'s conditional-rules contract, rules whose prescriptions only fire in specific task contexts should set `alwaysApply: false` and add an `applyTo:` clause so the agent's model loads them on-demand rather than carrying the full body in baseline. Nine trusted-tile rules qualified for the conversion:

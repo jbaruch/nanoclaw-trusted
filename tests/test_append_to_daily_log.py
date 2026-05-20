@@ -73,6 +73,112 @@ def _run(module, argv, capsys, stdin_text=None):
     return rc, payload, captured.err
 
 
+def test_dedup_skips_existing_line(append_module, capsys):
+    """Per `jbaruch/nanoclaw#365`: a candidate line that already
+    appears in the file (whitespace-normalized) must not be appended
+    again. The file's mtime and inode stay untouched on an all-
+    duplicate batch."""
+    module, group_dir, _ = append_module
+    daily_file = group_dir / "2026-05-01.md"
+    daily_file.parent.mkdir(parents=True, exist_ok=True)
+    daily_file.write_text(
+        "# Daily Summary — 2026-05-01\n\n" "- 09:00 UTC — alpha\n" "- 10:00 UTC — beta\n"
+    )
+    pre_mtime = daily_file.stat().st_mtime_ns
+    pre_inode = daily_file.stat().st_ino
+
+    rc, payload, _err = _run(
+        module,
+        # Same content, different whitespace — must be treated as dup.
+        ["--target", "group", "--date", "2026-05-01", "--line", "- 09:00  UTC — alpha"],
+        capsys,
+    )
+    assert rc == 0
+    assert payload["appended_lines"] == 0
+    assert payload["dropped_duplicates"] == 1
+    # No write fired → mtime / inode unchanged.
+    assert daily_file.stat().st_mtime_ns == pre_mtime
+    assert daily_file.stat().st_ino == pre_inode
+
+
+def test_dedup_partial_batch_appends_only_new(append_module, capsys):
+    """Mixed batch: existing line dropped, new line kept. The result
+    reports both counts so the caller can log dedup activity."""
+    module, group_dir, _ = append_module
+    daily_file = group_dir / "2026-05-01.md"
+    daily_file.parent.mkdir(parents=True, exist_ok=True)
+    daily_file.write_text("# Daily Summary — 2026-05-01\n\n- 09:00 UTC — alpha\n")
+
+    rc, payload, _err = _run(
+        module,
+        [
+            "--target",
+            "group",
+            "--date",
+            "2026-05-01",
+            "--line",
+            "- 09:00 UTC — alpha",  # dup
+            "--line",
+            "- 11:00 UTC — gamma",  # new
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert payload["appended_lines"] == 1
+    assert payload["dropped_duplicates"] == 1
+    content = daily_file.read_text()
+    # alpha appears exactly once, gamma was appended.
+    assert content.count("- 09:00 UTC — alpha") == 1
+    assert "- 11:00 UTC — gamma" in content
+
+
+def test_dedup_within_batch(append_module, capsys):
+    """Two identical candidates in one invocation land once."""
+    module, group_dir, _ = append_module
+    rc, payload, _err = _run(
+        module,
+        [
+            "--target",
+            "group",
+            "--date",
+            "2026-05-01",
+            "--line",
+            "- 09:00 UTC — same",
+            "--line",
+            "- 09:00 UTC — same",
+        ],
+        capsys,
+    )
+    assert rc == 0
+    assert payload["appended_lines"] == 1
+    assert payload["dropped_duplicates"] == 1
+    content = (group_dir / "2026-05-01.md").read_text()
+    assert content.count("- 09:00 UTC — same") == 1
+
+
+def test_existing_lines_not_rewritten_on_dedup_skip(append_module, capsys):
+    """Acceptance: existing daily logs are unchanged on disk — no
+    destructive migration; dedup only applies to new appends. Even
+    when an existing line has whitespace quirks, dedup must NOT
+    touch it (an aggressive `read → normalize → write` would
+    silently rewrite the historical line)."""
+    module, group_dir, _ = append_module
+    daily_file = group_dir / "2026-05-01.md"
+    daily_file.parent.mkdir(parents=True, exist_ok=True)
+    daily_file.write_text("# Daily Summary — 2026-05-01\n\n- 09:00  UTC  —  whitespace-quirky\n")
+    original = daily_file.read_text()
+
+    # Candidate normalizes to the same as the existing line → skipped.
+    rc, _payload, _err = _run(
+        module,
+        ["--target", "group", "--date", "2026-05-01", "--line", "- 09:00 UTC — whitespace-quirky"],
+        capsys,
+    )
+    assert rc == 0
+    # File content character-for-character identical to what was on disk.
+    assert daily_file.read_text() == original
+
+
 def test_creates_file_with_header_on_first_call(append_module, capsys):
     module, group_dir, _ = append_module
     rc, payload, _err = _run(
