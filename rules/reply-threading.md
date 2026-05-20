@@ -8,9 +8,9 @@ alwaysApply: true
 
 **Always reply-thread** user messages using `reply_to` on `mcp__nanoclaw__send_message`.
 
-## Why it's required
+## Heartbeat matching contract
 
-Heartbeat tracks unanswered messages by walking outbound IDs and checking each one's `reply_to` against the inbound queue. A response that doesn't carry `reply_to` is invisible to that walk and flags the inbound as unanswered indefinitely.
+Heartbeat tracks unanswered messages by walking outbound IDs and matching each one's `reply_to` against the inbound queue. An outbound message without `reply_to` is invisible to the match.
 
 ## Scope
 

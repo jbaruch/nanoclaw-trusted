@@ -11,9 +11,9 @@ alwaysApply: true
 3. Send the response
 4. Clear `pending_response` to null
 
-## What it protects against
+## Heartbeat sweep contract
 
-Container crashes or restarts mid-work would otherwise leave the inbound message in limbo. Heartbeat reads `pending_response` on its next sweep and picks up interrupted responses, so the user always gets a reply or a state-loss notice.
+On every heartbeat tick, `maintenance` reads `pending_response`. A non-null value older than the heartbeat window means the prior session crashed mid-work; heartbeat reposts the response or sends a state-loss notice, then clears the entry.
 
 ## Who writes / clears
 

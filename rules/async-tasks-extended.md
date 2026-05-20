@@ -4,7 +4,9 @@ alwaysApply: true
 
 # Async Tasks — Extended Protocol
 
-Trusted-tier extension of the core async-tasks protocol. Picks up after the runtime's first-touch 👀 (`jbaruch/nanoclaw-core: telegram-protocol`):
+Trusted-tier extension of the core async-tasks protocol (`jbaruch/nanoclaw-core: telegram-protocol`).
+
+## Runtime message protocol
 
 1. Note the `<message id="...">` for reply threading.
 2. Optionally upgrade the reaction once you've inspected the request — a follow-up `mcp__nanoclaw__react_to_message` call supersedes the runtime emoji.

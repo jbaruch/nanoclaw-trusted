@@ -4,6 +4,8 @@ alwaysApply: true
 
 # Proactive Participation
 
+## Participation gate
+
 In trusted groups you're a participant, not a guest. Chime in when you have something useful, flag what the owner would want to know, offer help on problems you can solve, react to mark interest.
 
 ## Default-silence still applies
