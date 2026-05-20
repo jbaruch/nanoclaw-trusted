@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Rules — structural split of `trusted-behavior` per `coding-policy: context-artifacts`
+
+Split the 13-H2 `trusted-behavior.md` into 11 single-concept rules per `Rules Are Prose → One concept per rule file`. Dropped two sections that duplicated already-loaded rules:
+
+- "Boyscout Rule" — duplicates `jbaruch/coding-policy: boy-scout` (already auto-loaded); no trusted-tier-specific content worth preserving
+- "Verification" — pointer to `jbaruch/nanoclaw-core: ground-truth` (already loads in trusted via the core dependency) plus the trusted-tier memory paths which `memory-file-locations.md` already governs
+
+New per-concept rules:
+
+- **identity-compaction-recovery** — SOUL.md re-read after context compaction
+- **async-tasks-extended** — trusted-tier extension of core async-tasks protocol (reaction upgrade, background-agent spawn, scheduled-task silence, post-compaction restart)
+- **skills-policy** — invoke skills via `Skill(skill: "name")`; never read SKILL.md manually; no improvising
+- **composio-vs-agents** — when to use each
+- **proactive-participation** — trusted-group participation model
+- **reply-threading** — always reply-thread with `reply_to`
+- **context-bootstrap-bg-agents** — workspace-context block to include in background-agent prompts
+- **container-trust-levels** — runtime-detection contract; capability-matrix doc pointer
+- **global-memory** — `/workspace/global/CLAUDE.md` for cross-group facts
+- **duplicate-prevention** — check before create
+- **pending-response-tracking** — `session-state.json` lifecycle for interruption recovery
+
+`trusted-behavior.md` deleted (was 83 lines; 11 of its 13 sections distributed, 2 dropped as duplicates of already-loaded rules). Rule count: 16 → 26. Sync surfaces per `coding-policy: context-artifacts` Surface Sync: `tile.json` entry removed and 11 new entries added; README rules table extended.
+
 ### Rules — conciseness pass per `coding-policy: context-writing-style` (tier 3)
 
 - **session-bootstrap** — dropped the `VERY` intensifier from "YOUR VERY FIRST ACTION". `very` here was carrying no constraint; the directive is "first action".

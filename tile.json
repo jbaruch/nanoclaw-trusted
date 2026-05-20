@@ -8,8 +8,49 @@
     "daily-discoveries-rule": {
       "rules": "rules/daily-discoveries-rule.md"
     },
-    "trusted-behavior": {
-      "rules": "rules/trusted-behavior.md"
+    "identity-compaction-recovery": {
+      "rules": "rules/identity-compaction-recovery.md",
+      "alwaysApply": true
+    },
+    "async-tasks-extended": {
+      "rules": "rules/async-tasks-extended.md",
+      "alwaysApply": true
+    },
+    "skills-policy": {
+      "rules": "rules/skills-policy.md",
+      "alwaysApply": true
+    },
+    "composio-vs-agents": {
+      "rules": "rules/composio-vs-agents.md",
+      "alwaysApply": true
+    },
+    "proactive-participation": {
+      "rules": "rules/proactive-participation.md",
+      "alwaysApply": true
+    },
+    "reply-threading": {
+      "rules": "rules/reply-threading.md",
+      "alwaysApply": true
+    },
+    "context-bootstrap-bg-agents": {
+      "rules": "rules/context-bootstrap-bg-agents.md",
+      "alwaysApply": true
+    },
+    "container-trust-levels": {
+      "rules": "rules/container-trust-levels.md",
+      "alwaysApply": true
+    },
+    "global-memory": {
+      "rules": "rules/global-memory.md",
+      "alwaysApply": true
+    },
+    "duplicate-prevention": {
+      "rules": "rules/duplicate-prevention.md",
+      "alwaysApply": true
+    },
+    "pending-response-tracking": {
+      "rules": "rules/pending-response-tracking.md",
+      "alwaysApply": true
     },
     "no-orphan-tasks": {
       "rules": "rules/no-orphan-tasks.md"

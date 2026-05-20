@@ -19,13 +19,27 @@ Mutable JSON object. Per-group, not shared across containers.
       "last_seen":  "<ISO-8601 UTC>"
     }
   },
-  "session_id": "<top-level mirror of the active session_id, back-compat>"
+  "session_id":       "<top-level mirror of the active session_id, back-compat>",
+  "pending_response": null,
+  "seen_email_ids":   [],
+  "muted_threads":    {}
 }
 ```
 
+### Writer / reader contract
+
+| Field | Writers | Readers | Notes |
+|---|---|---|---|
+| `schema_version` | `register-session.py` (owner) | All readers gate on this | See Schema versioning below |
+| `sessions.<name>.*` | `register-session.py` (owner) — own session's subtree | All readers may inspect any session | `last_seen` may be stamped by `tessl__heartbeat` for `maintenance` |
+| `session_id` (top-level) | `register-session.py` — both sessions on bootstrap | Legacy readers only | Back-compat; last-writer-wins is accepted |
+| `pending_response` | `default` session writes on inbound start; `default` clears on send; `maintenance` heartbeat clears stale entries | All trusted/main sessions | The `pending-response-tracking` rule governs the protocol |
+| `seen_email_ids` | `tessl__check-email`, `tessl__heartbeat`, `tessl__morning-brief`, `tessl__nightly` (all `maintenance`) | `tessl__check-email` for de-dup | Append-only within a window |
+| `muted_threads` | `default` session | `default` + `maintenance` | Per-thread mute map |
+
 **Back-compat note (legacy migration, ex–`reference_session-state-migration.md`):** the top-level `session_id` field is the pre-`PR jbaruch/nanoclaw#55` shape, when only one session existed per group. It is still written so readers that haven't moved to the per-session subtree continue to work. New readers SHOULD use `sessions.<name>.session_id`. Old single-session files are accepted on read — register-session.py adds the `sessions` subtree without dropping the top-level field, so the migration is in-place and idempotent.
 
-**Other writers on this file** must take `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for the duration of their read-modify-write cycle. Current participants: `jbaruch/nanoclaw-admin: tessl__heartbeat` (writes `last_seen`) and `jbaruch/nanoclaw-admin: tessl__check-email` (writes `seen_email_ids`, `pending_response`, `muted_threads`). Without the shared lock, concurrent updates clobber each other.
+**Other writers on this file** must take `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for the duration of their read-modify-write cycle. Current participants: `jbaruch/nanoclaw-admin: tessl__heartbeat` (writes `last_seen`, clears stale `pending_response`) and `jbaruch/nanoclaw-admin: tessl__check-email` (writes `seen_email_ids`, `pending_response`, `muted_threads`). Without the shared lock, concurrent updates clobber each other.
 
 ### `/tmp/session_bootstrapped`
 
