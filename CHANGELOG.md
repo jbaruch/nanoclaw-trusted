@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Rules — conciseness pass per `coding-policy: context-writing-style` (tier 3)
+
+- **session-bootstrap** — dropped the `VERY` intensifier from "YOUR VERY FIRST ACTION". `very` here was carrying no constraint; the directive is "first action".
+
 ### Rules — conciseness pass per `coding-policy: context-writing-style`
 
 Always-on rules are loaded into every agent invocation, so meta-justification prose and dated incident references inflate the per-invocation token budget for no operational gain. This pass strips that content while preserving the operative contracts. Cut content is archived here per the rule's "What to Cut → move to CHANGELOG" guidance.
