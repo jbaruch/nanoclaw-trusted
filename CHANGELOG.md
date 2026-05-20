@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Rules — conciseness pass per `coding-policy: context-writing-style`
+
+Always-on rules are loaded into every agent invocation, so meta-justification prose and dated incident references inflate the per-invocation token budget for no operational gain. This pass strips that content while preserving the operative contracts. Cut content is archived here per the rule's "What to Cut → move to CHANGELOG" guidance.
+
+- **identity-dual-handle** — renamed H1 from "Identity — Dual-Handle Reference Incident" (the file is now a rule, not an incident record); dropped the opening paragraph that framed the file as "the deploy-tier record of a concrete failure that motivated [the invariant]"; dropped `## Reference incident — 2026-04-27` section in full (debate-setup message routing the agent through both handles; re-triggered same morning; narrative + companion-mitigation context referenced `docs/adr/2026-04-27-dual-handle-role-splitting.md`). Operative `## How to Apply` bullets preserved verbatim.
+
+- **installed-content-immutable** — dropped trailing sentence "See `docs/adr/2026-04-25-installed-content-erofs.md` for the motivating incident (`jbaruch/nanoclaw#247`) and the staging → promote → publish → update pipeline…"; the operative "Changes flow through staging → promote → publish → update" replaces it in one line without the incident pointer or cross-rule rationale shoulder-tap.
+
+- **github-data-via-gh** — cut "49 distinct curl-against-`api.github.com` command shapes on the operator-observer chat 2026-04-28..05-03 (all in `telegram_old-wtf`) hit the unauthenticated public-API path and probed more URLs to triangulate after each 404" worked example with incident dates from `## Why Not curl`. Failure-mode list preserved as the operative content.
+
+- **messages-db-schema** — cut "(the Python stdlib module is the path; 23 `sqlite3: command not found` events in the observer-chat audit 2026-04-28..05-03 drove this rule)" parenthetical; "values verified live on 2026-05-04" verification date; "Recurring failure mode this rule closes: `no such column: trigger_word` / `chat_jid` / `trusted` errors (18 hits / 9 distinct guesses in the same audit window)" worked-example sentence. Replaced with a compact "Common wrong guesses: …" enumeration that keeps the actionable column-name hints without the audit-window dates.
+
+- **local-context-anchoring** — cut "(currently `segment` / `home_fallback` / `container_default` in this orchestrator version)" parenthetical that lists in-flight `timezone_source` enum values; rewrote the sentence to apply to any non-`location` source so the rule doesn't decay when the enum expands.
+
 ### Rules
 
 - **Scrub dangling cross-tile references** (`jbaruch/nanoclaw-trusted#44`, PR `#45`) — Replace `nanoclaw-admin/skills/.../*.py` path leaks with contract-shaped wording; rewrite participating writer/reader identities in `state-schema.md` using stable `jbaruch/nanoclaw-admin: tessl__<skill>` qualifiers so the `stateful-artifacts` contract stays explicit without coupling to internal layouts. No skill-behaviour change; no rule-contract change.

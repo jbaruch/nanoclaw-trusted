@@ -6,7 +6,11 @@ alwaysApply: true
 
 ## Don't Guess Column Names
 
-The shared SQLite at `/workspace/store/messages.db` is accessed via `python3 -c 'import sqlite3; conn = sqlite3.connect("/workspace/store/messages.db"); ...'` — the standalone `sqlite3` CLI is not installed in the container image (the Python stdlib module is the path; 23 `sqlite3: command not found` events in the observer-chat audit 2026-04-28..05-03 drove this rule). The tables below have schemas confirmed by `PRAGMA table_info(<table>)`; values verified live on 2026-05-04. Recurring failure mode this rule closes: `no such column: trigger_word` / `chat_jid` / `trusted` errors (18 hits / 9 distinct guesses in the same audit window).
+The shared SQLite at `/workspace/store/messages.db` is accessed via `python3 -c 'import sqlite3; conn = sqlite3.connect("/workspace/store/messages.db"); ...'` — the standalone `sqlite3` CLI is not installed in the container image. The tables below have schemas confirmed by `PRAGMA table_info(<table>)`. Don't guess these column names:
+
+- `trigger_word` — the actual column is `trigger_pattern`
+- `chat_jid` on `registered_groups` — it's not a column there; only on `messages`
+- `trusted` as a column — lives inside `container_config` JSON, not its own column
 
 ## Tables
 
