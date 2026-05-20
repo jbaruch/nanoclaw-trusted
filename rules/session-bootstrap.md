@@ -4,7 +4,7 @@ alwaysApply: true
 
 # Session Bootstrap — MANDATORY First Action
 
-**YOUR VERY FIRST ACTION in every new session — before responding to ANY message — is to run this Bash command:**
+**YOUR FIRST ACTION in every new session — before responding to ANY message — is to run this Bash command:**
 
 ```bash
 cat /tmp/session_bootstrapped 2>/dev/null
