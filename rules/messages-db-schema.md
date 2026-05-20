@@ -6,7 +6,11 @@ alwaysApply: true
 
 ## Don't Guess Column Names
 
-The shared SQLite at `/workspace/store/messages.db` is accessed via `python3 -c 'import sqlite3; conn = sqlite3.connect("/workspace/store/messages.db"); ...'` — the standalone `sqlite3` CLI is not installed in the container image. The tables below have schemas confirmed by `PRAGMA table_info(<table>)`. Common wrong guesses: `trigger_word` (correct: `trigger_pattern`), `chat_jid` as a `registered_groups` column (it's not — only on `messages`), `trusted` as a column (lives inside `container_config` JSON).
+The shared SQLite at `/workspace/store/messages.db` is accessed via `python3 -c 'import sqlite3; conn = sqlite3.connect("/workspace/store/messages.db"); ...'` — the standalone `sqlite3` CLI is not installed in the container image. The tables below have schemas confirmed by `PRAGMA table_info(<table>)`. Don't guess these column names:
+
+- `trigger_word` — the actual column is `trigger_pattern`
+- `chat_jid` on `registered_groups` — it's not a column there; only on `messages`
+- `trusted` as a column — lives inside `container_config` JSON, not its own column
 
 ## Tables
 

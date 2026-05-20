@@ -4,7 +4,7 @@ alwaysApply: true
 
 # Identity — Dual Handle
 
-Deploy-tier application of the abstract dual-handle invariant in `jbaruch/nanoclaw-core` `rules/core-behavior.md` — display-name trigger and Telegram `@username` refer to the same agent; never split into multiple addressees based on surface form.
+Display-name trigger and Telegram `@username` refer to the same agent. Never split into multiple addressees based on surface form. (See `jbaruch/nanoclaw-core: core-behavior`.)
 
 ## How to Apply
 

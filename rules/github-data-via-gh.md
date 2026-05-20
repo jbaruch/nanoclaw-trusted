@@ -12,7 +12,13 @@ Always use `--json` to get structured output: `gh issue view 565 --repo jbaruch/
 
 ## Why Not `curl`
 
-`curl https://api.github.com/...` doesn't return `command not found` — it appears to work, then quietly fails differently. The unauthenticated path's failure modes — 60 req/hr rate limit, no `{successful, error}` envelope, private-repo 404s indistinguishable from non-existence — are exactly what `gh` solves. Don't hand-roll `Authorization: Bearer "$GITHUB_TOKEN"` onto curl either; `gh` already does that correctly and exposes `--json` for parsing.
+Don't use `curl https://api.github.com/...` for GitHub data — the unauthenticated path appears to work, then quietly fails. Known failure modes:
+
+- 60 req/hr rate limit
+- No `{successful, error}` envelope
+- Private-repo 404s indistinguishable from non-existence
+
+Don't hand-roll `Authorization: Bearer "$GITHUB_TOKEN"` onto curl either. Use `gh --json`.
 
 ## Composio as Fallback Only
 
