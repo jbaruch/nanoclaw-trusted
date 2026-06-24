@@ -47,7 +47,7 @@ Content here...
 
 ### Types
 
-**user** — Owner profile, preferences, knowledge level. `user_profile.md` additionally carries the canonical machine-readable `## Addresses` block (`current_home` / `home_airport` / `new_home_wip`) that the travel tile reads — schema and reader contract in `state-schema.md`.
+**user** — Owner profile, preferences, knowledge level. `user_profile.md` is a canonical, **special-case** file whose name is fixed (it does NOT follow the general `user_<slug>.md` / `{type}_{slug}.md` pattern below): it additionally carries the canonical machine-readable `## Addresses` block (`current_home` / `home_airport` / `new_home_wip`) that the travel tile reads by exact filename — schema and reader contract in `state-schema.md`.
 
 **feedback** — Behavioral corrections. Structure as: rule + why + how to apply. Example:
 ```markdown

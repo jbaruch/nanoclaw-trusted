@@ -57,13 +57,14 @@ Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-adm
 
 ## `/workspace/trusted/user_profile.md` — `## Addresses` block
 
-`user_profile.md` is a `type: user` typed-memory file (see `SKILL.md` → Typed Memory Files). Its prose body is agent-read context. In addition, it carries one **machine-readable** block that scripts parse directly — the canonical `## Addresses` block. Owner skill is `tessl__trusted-memory` (this tile); the block is trusted-tile-owned per `jbaruch/coding-policy: stateful-artifacts`, and every other tile is a **read-only consumer**.
+`user_profile.md` is a canonical, **special-case** profile file. It does NOT follow the general `{type}_{slug}.md` typed-memory naming convention in `SKILL.md` (e.g. `user_travel-prefs.md`) — its filename is fixed (`user_profile.md`) because the travel-tile reader contract below is filename-sensitive. It still uses `type: user` frontmatter, and its prose body is agent-read context like any other `user` file. In addition, it carries one **machine-readable** block that scripts parse directly — the canonical `## Addresses` block. Owner skill is `tessl__trusted-memory` (this tile); the block is trusted-tile-owned per `jbaruch/coding-policy: stateful-artifacts`, and every other tile is a **read-only consumer**.
 
 ### Shape
 
 ```
 ## Addresses
-<!-- canonical, machine-read by travel tile -->
+<!-- canonical, machine-read by travel tile; schema v1 — see trusted-memory state-schema.md -->
+- schema_version: 1
 - current_home: <current home street address>
 - home_airport: <IATA code>
 - new_home_wip: <new-build street address>
@@ -71,11 +72,21 @@ Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-adm
 
 | Key | Meaning | Mutability |
 |---|---|---|
+| `schema_version` | Block shape version (currently `1`). Bump on any shape change per `jbaruch/coding-policy: stateful-artifacts`. | Owner-only. |
 | `current_home` | The operator's current residence — the origin every home-anchored drive leg routes from. | Owner-updated. Switch to the `new_home_wip` value once that home is occupied. |
 | `home_airport` | Home IATA code (e.g. `BNA`). | Owner-updated. |
 | `new_home_wip` | New-build street address, not yet occupied. | Owner-updated. **Not** auto-promoted to `current_home` — that is an explicit later edit. |
 
-The block **separates** the three values that the surrounding prose conflates ("home base / new build"). Keep the prose for the agent; the block exists so script reads get an unambiguous single value per key.
+The block **separates** the three address values that the surrounding prose conflates ("home base / new build"). Keep the prose for the agent; the block exists so script reads get an unambiguous single value per key.
+
+### Schema versioning
+
+`schema_version: 1` is the current canonical shape (`current_home` + `home_airport` + `new_home_wip`). Only the owner skill (`tessl__trusted-memory`) bumps it, and only the owner migrates the block — never a reader. Per `jbaruch/coding-policy: stateful-artifacts` and the **cross-pipeline** caveat (the writer ships in this tile; the reader ships in `jbaruch/nanoclaw-travel` through a separate pipeline), bumps must be coordinated across the two pipelines:
+
+- **Additive (backward-compatible) bumps** — a new optional key — need no reader change: the version-agnostic `current_home` reader (below) keeps working. Bump the version, document the new key here.
+- **Breaking bumps** — renaming/removing `current_home` or changing its line shape — require the consumer-side reader to parse both shapes first (deploy the dual-accept reader → then change the writer → then drop the old shape), because the reader can lag the writer across the deploy skew window.
+
+A consumer that does not inspect `schema_version` (the current drive-planner reader does not) treats any version's `- current_home:` line as readable — that is intentional for the additive v1 contract. A future consumer that gates on version MUST treat an unaccepted version as "no usable prior state" and fail closed (drive-planner already fails closed on a missing/malformed block), never guess an origin.
 
 ### Writer / reader contract
 
