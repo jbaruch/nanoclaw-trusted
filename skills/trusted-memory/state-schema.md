@@ -57,7 +57,7 @@ Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-adm
 
 ## `/workspace/trusted/user_profile.md` — `## Addresses` block
 
-`user_profile.md` is a canonical, **special-case** profile file. It does NOT follow the general `{type}_{slug}.md` typed-memory naming convention in `SKILL.md` (e.g. `user_travel-prefs.md`) — its filename is fixed (`user_profile.md`) because the travel-tile reader contract below is filename-sensitive. It still uses `type: user` frontmatter, and its prose body is agent-read context like any other `user` file. In addition, it carries one **machine-readable** block that scripts parse directly — the canonical `## Addresses` block. Owner skill is `tessl__trusted-memory` (this tile); the block is trusted-tile-owned per `jbaruch/coding-policy: stateful-artifacts`, and every other tile is a **read-only consumer**.
+`user_profile.md` is a canonical, **special-case** profile file with a fixed filename. It does NOT follow the general `{type}_{slug}.md` typed-memory naming convention in `SKILL.md` (e.g. `user_travel-prefs.md`); the travel-tile reader contract below resolves it by that exact name. It still uses `type: user` frontmatter, and its prose body is agent-read context like any other `user` file. In addition, it carries one **machine-readable** block that scripts parse directly — the canonical `## Addresses` block. Owner skill is `tessl__trusted-memory` (this tile); the block is trusted-tile-owned per `jbaruch/coding-policy: stateful-artifacts`, and every other tile is a **read-only consumer**.
 
 ### Shape
 
@@ -81,12 +81,12 @@ The block **separates** the three address values that the surrounding prose conf
 
 ### Schema versioning
 
-`schema_version: 1` is the current canonical shape (`current_home` + `home_airport` + `new_home_wip`). Only the owner skill (`tessl__trusted-memory`) bumps it, and only the owner migrates the block — never a reader. Per `jbaruch/coding-policy: stateful-artifacts` and the **cross-pipeline** caveat (the writer ships in this tile; the reader ships in `jbaruch/nanoclaw-travel` through a separate pipeline), bumps must be coordinated across the two pipelines:
+`schema_version: 1` is the current canonical shape (`current_home` + `home_airport` + `new_home_wip`). Only the owner skill (`tessl__trusted-memory`) bumps it, and only the owner migrates the block — never a reader. Writer and reader ship through separate pipelines (writer here, reader in `jbaruch/nanoclaw-travel`). Coordinate bumps per `jbaruch/coding-policy: stateful-artifacts`:
 
-- **Additive (backward-compatible) bumps** — a new optional key — need no reader change: the version-agnostic `current_home` reader (below) keeps working. Bump the version, document the new key here.
-- **Breaking bumps** — renaming/removing `current_home` or changing its line shape — require the consumer-side reader to parse both shapes first (deploy the dual-accept reader → then change the writer → then drop the old shape), because the reader can lag the writer across the deploy skew window.
+- **Additive (backward-compatible) bumps** — a new optional key — need no reader change. Bump the version, document the new key here.
+- **Breaking bumps** — renaming/removing `current_home` or changing its line shape — deploy the dual-accept reader → change the writer → drop the old shape.
 
-A consumer that does not inspect `schema_version` (the current drive-planner reader does not) treats any version's `- current_home:` line as readable — that is intentional for the additive v1 contract. A future consumer that gates on version MUST treat an unaccepted version as "no usable prior state" and fail closed (drive-planner already fails closed on a missing/malformed block), never guess an origin.
+A consumer that does not inspect `schema_version` (the current drive-planner reader does not) treats any version's `- current_home:` line as readable. A future consumer that gates on version MUST treat an unaccepted version as "no usable prior state" and fail closed, never guess an origin.
 
 ### Writer / reader contract
 
@@ -96,10 +96,4 @@ A consumer that does not inspect `schema_version` (the current drive-planner rea
 | `home_airport` | `tessl__trusted-memory` (owner) | travel-tile consumers (read-only) | IATA code. |
 | `new_home_wip` | `tessl__trusted-memory` (owner) | **deliberately ignored** by `drive-planner` | Origin switches are an explicit later change, never an auto-pickup. |
 
-**Travel-tile reader contract (already implemented consumer-side).** `skills/drive-planner/home_address.py` in `jbaruch/nanoclaw-travel` parses `current_home` with:
-
-```
-^\s*-\s*current_home\s*:\s*(?P<value>\S.*?)\s*$   (re.MULTILINE)
-```
-
-So the canonical line MUST be `- current_home: <address>` under a `## Addresses` heading. The reader **refuses to guess** on a missing block — it raises an actionable error pointing back at this skill, so the drive-planner sweep fails closed (no blocks created) until the block lands. A test fixture in nanoclaw-travel pins this line shape; any owner-side reformatting of the block MUST keep `- <key>: <value>` lines intact (leading whitespace, padded colons, and a trailing `<!-- comment -->` line are all tolerated by the regex; reordering keys is fine; the value must start with a non-whitespace character).
+**Travel-tile reader contract (consumer-side).** `jbaruch/nanoclaw-travel`'s `skills/drive-planner/home_address.py` is the read-only consumer of `current_home`. The contract this tile guarantees: a `- current_home: <address>` line under a `## Addresses` heading. The reader **refuses to guess** on a missing or malformed block — it raises an actionable error pointing back at this skill, and drive-planner's sweep fails closed (no blocks created) until the block lands. Parsing details (the match pattern, whitespace tolerance) live in that script and its docstring/tests; owner-side reformatting MUST preserve the `- <key>: <value>` line shape, which a nanoclaw-travel fixture pins.
