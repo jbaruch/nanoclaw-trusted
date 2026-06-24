@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.1.78 — 2026-06-24
+<!-- Top entries are un-headed `### ` blocks. The publish pipeline's
+     `stamp-changelog` step inserts the `## <version> — <date>` heading above
+     them before publishing — do not add it manually (jbaruch/coding-policy:
+     context-artifacts). -->
 
 ### Skills — document canonical `## Addresses` block in `user_profile.md` (`#53`)
 
@@ -8,7 +11,13 @@ The new `drive-planner` skill in `jbaruch/nanoclaw-travel` (Epic `jbaruch/nanocl
 
 Regex shape confirmed against the schema line (`- current_home: <addr>` extracts cleanly; padded colons, leading whitespace, a trailing `<!-- comment -->` line, the additive `schema_version` line, and sibling `home_airport`/`new_home_wip` lines are all tolerated). The repo ships placeholders only; the literal address values live in the runtime `/workspace/trusted/user_profile.md` on the NAS (populated out-of-band) and the merged `jbaruch/nanoclaw-travel` reader docstring/fixtures — adding the block with real values to the live profile is a NAS-runtime action, out of scope for this repo.
 
-## Unreleased
+The schema doc states only the owner-side contract (`- current_home: <address>` under `## Addresses`) and points at the consumer script for parsing details, rather than restating the regex (`jbaruch/coding-policy: script-as-black-box`); rationale clauses were moved here from the skill/schema prose (`context-writing-style`). On cross-pipeline schema bumps: the writer ships in this tile and the drive-planner reader in `jbaruch/nanoclaw-travel`, so a breaking shape change deploys a dual-accept reader before the writer flips — the reader can otherwise lag the writer across the deploy-skew window.
+
+### CI — wire `stamp-changelog` before publish + retire the `Unreleased` bucket
+
+`publish-tile.yml` uses `tesslio/patch-version-publish` (bumps the manifest, publishes) but never stamped `CHANGELOG.md`, so entries accumulated under an `## Unreleased` heading that `jbaruch/coding-policy: context-artifacts` forbids. Wired `jbaruch/coding-policy/.github/actions/stamp-changelog@e27f699` immediately before publish: PR authors now add un-headed `### ` blocks at the top of the changelog and the step inserts the `## <version> — <date>` heading for the version being published (idempotent no-op once a `## ` heading is present). The legacy `## Unreleased` backlog was baselined to `## 0.1.77 — 2026-05-29` (the last published version — every entry in that bucket shipped on or before it; this is a one-time migration marker, not a per-entry re-dating).
+
+## 0.1.77 — 2026-05-29
 
 ### Skills — apply-time dedup + shared atomic-write helper for memory writes (`jbaruch/nanoclaw#365`)
 

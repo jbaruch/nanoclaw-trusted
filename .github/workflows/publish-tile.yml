@@ -38,6 +38,15 @@ jobs:
       - name: Lint tile
         run: tessl tile lint .
 
+      # Stamp the CHANGELOG's top un-headed `### ` entries with the version
+      # patch-version-publish is about to assign, so the published artifact and
+      # registry "what's new" show them under their real version instead of an
+      # `Unreleased` bucket (forbidden by jbaruch/coding-policy: context-artifacts).
+      # Idempotent no-op when the top section already carries a `## ` heading.
+      # Must run immediately before publish; action + script live in coding-policy.
+      - name: Stamp CHANGELOG
+        uses: jbaruch/coding-policy/.github/actions/stamp-changelog@e27f699fa03965351c0d8e15c481e6cb320d6a81 # v0.x
+
       - uses: tesslio/patch-version-publish@v1
         with:
           token: ${{ secrets.TESSL_TOKEN }}
