@@ -54,3 +54,41 @@ Plain-text sentinel. One line: the value of `$CLAUDE_SESSION_ID` from the run th
 Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-admin: tessl__check-email`) MUST treat an unknown future version (`schema_version > 1`) as "no usable prior state" and let the next `register-session.py` run perform the upgrade — never migrate from a reader.
 
 `/tmp/session_bootstrapped` is a single-line plain-text sentinel; it has no envelope shape to version. The only behavioral contract is "non-empty content = bootstrap was completed for this `$CLAUDE_SESSION_ID`", and that contract is stable.
+
+## `/workspace/trusted/user_profile.md` — `## Addresses` block
+
+`user_profile.md` is a `type: user` typed-memory file (see `SKILL.md` → Typed Memory Files). Its prose body is agent-read context. In addition, it carries one **machine-readable** block that scripts parse directly — the canonical `## Addresses` block. Owner skill is `tessl__trusted-memory` (this tile); the block is trusted-tile-owned per `jbaruch/coding-policy: stateful-artifacts`, and every other tile is a **read-only consumer**.
+
+### Shape
+
+```
+## Addresses
+<!-- canonical, machine-read by travel tile -->
+- current_home: <current home street address>
+- home_airport: <IATA code>
+- new_home_wip: <new-build street address>
+```
+
+| Key | Meaning | Mutability |
+|---|---|---|
+| `current_home` | The operator's current residence — the origin every home-anchored drive leg routes from. | Owner-updated. Switch to the `new_home_wip` value once that home is occupied. |
+| `home_airport` | Home IATA code (e.g. `BNA`). | Owner-updated. |
+| `new_home_wip` | New-build street address, not yet occupied. | Owner-updated. **Not** auto-promoted to `current_home` — that is an explicit later edit. |
+
+The block **separates** the three values that the surrounding prose conflates ("home base / new build"). Keep the prose for the agent; the block exists so script reads get an unambiguous single value per key.
+
+### Writer / reader contract
+
+| Field | Writer | Readers | Notes |
+|---|---|---|---|
+| `current_home` | `tessl__trusted-memory` (owner) | `jbaruch/nanoclaw-travel: drive-planner` (read-only) | Origin for home-anchored drive legs. |
+| `home_airport` | `tessl__trusted-memory` (owner) | travel-tile consumers (read-only) | IATA code. |
+| `new_home_wip` | `tessl__trusted-memory` (owner) | **deliberately ignored** by `drive-planner` | Origin switches are an explicit later change, never an auto-pickup. |
+
+**Travel-tile reader contract (already implemented consumer-side).** `skills/drive-planner/home_address.py` in `jbaruch/nanoclaw-travel` parses `current_home` with:
+
+```
+^\s*-\s*current_home\s*:\s*(?P<value>\S.*?)\s*$   (re.MULTILINE)
+```
+
+So the canonical line MUST be `- current_home: <address>` under a `## Addresses` heading. The reader **refuses to guess** on a missing block — it raises an actionable error pointing back at this skill, so the drive-planner sweep fails closed (no blocks created) until the block lands. A test fixture in nanoclaw-travel pins this line shape; any owner-side reformatting of the block MUST keep `- <key>: <value>` lines intact (leading whitespace, padded colons, and a trailing `<!-- comment -->` line are all tolerated by the regex; reordering keys is fine; the value must start with a non-whitespace character).
