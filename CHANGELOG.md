@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.78 — 2026-06-24
+
 ### Skills — document canonical `## Addresses` block in `user_profile.md` (`#53`)
 
 The new `drive-planner` skill in `jbaruch/nanoclaw-travel` (Epic `jbaruch/nanoclaw-travel#59` §4) routes every home-anchored drive leg from the operator's current residence and reads that address from the canonical owner profile this tile owns. `state-schema.md` previously documented only `session-state.json` + the bootstrap sentinel; it now gains a `## /workspace/trusted/user_profile.md — ## Addresses block` section defining the machine-readable block shape (`schema_version` + `current_home` / `home_airport` / `new_home_wip`), the owner/consumer split (trusted-tile-owned, travel is a read-only consumer per `jbaruch/coding-policy: stateful-artifacts`), a Schema versioning subsection (owner-only bumps, cross-pipeline coordination since writer and reader ship through separate pipelines, version-agnostic-reader rationale), and the travel-tile reader contract — including the verbatim `home_address.py` regex (`^\s*-\s*current_home\s*:\s*(?P<value>\S.*?)\s*$`, MULTILINE), the deliberate ignore of `new_home_wip`, and the fail-closed behavior on a missing block. The block separates the three address values the existing prose conflates ("home base / new build"); prose stays for the agent, the block exists for script reads. `user_profile.md` is documented as a canonical special-case filename (fixed name, not the general `{type}_{slug}.md` pattern) because the reader contract is filename-sensitive. `SKILL.md`'s `user` typed-file description gains a matching pointer.
