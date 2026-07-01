@@ -31,5 +31,13 @@ jobs:
           python -m ruff check tests/
           python -m ruff format --check tests/
 
+      # Type/diagnostics gate at zero findings per `jbaruch/coding-policy:
+      # language-diagnostics`. Scope is the whole repo (scripts + tests) via
+      # pyrightconfig.json — broader than ruff's tests-only scope — because the
+      # source-side findings are the point. Runs before pytest: static first,
+      # cheap, no fixture boot.
+      - name: Types (pyright)
+        run: python -m pyright
+
       - name: Pytest
         run: python -m pytest
