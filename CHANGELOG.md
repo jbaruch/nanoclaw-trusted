@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.80 — 2026-07-01
+
 ### Fix — rewrite `session-bootstrap.md`: defer to the skill, clear moderation
 
 Two problems in one rule. **Correctness:** the always-on bootstrap rule
