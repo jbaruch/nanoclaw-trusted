@@ -28,7 +28,7 @@ Always-on rules are loaded into every turn's context. Conditional rules are load
 | [no-orphan-tasks](rules/no-orphan-tasks.md) | conditional | Before scheduling any new recurring task, check: |
 | [no-silent-defer](rules/no-silent-defer.md) | always-on | Defer is allowed only when there is a concrete handoff that will actually do the deferred work. Otherwise it is a silent skip — and silent skips on something the owner intended to act on are material harm, not noise. |
 | [proactive-fact-saving](rules/proactive-fact-saving.md) | always-on | Personal facts mentioned in conversation must be saved to trusted memory IMMEDIATELY — not at end of session, not during archival, not "when non-trivial." At first mention. |
-| [session-bootstrap](rules/session-bootstrap.md) | always-on | Then write the sentinel: `echo "done" > /tmp/session_bootstrapped` |
+| [session-bootstrap](rules/session-bootstrap.md) | always-on | At session start, invoke the `tessl__trusted-memory` skill to load memory; the skill self-gates via its per-session `$CLAUDE_SESSION_ID` sentinel. |
 | [async-tasks-extended](rules/async-tasks-extended.md) | always-on | Trusted-tier extension of the core async-tasks protocol — reaction upgrade, background-agent spawn, scheduled-task silence, post-compaction restart. |
 | [composio-vs-agents](rules/composio-vs-agents.md) | always-on | Composio for single API calls / read ops; spawn `Agent` for multi-step workflows with judgment between steps. |
 | [container-trust-levels](rules/container-trust-levels.md) | always-on | Runtime detection is the contract: read-only-filesystem error = untrusted container, don't retry. Full capability matrix in `docs/trust-tier-capabilities.md`. |

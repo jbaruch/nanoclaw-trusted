@@ -2,18 +2,25 @@
 alwaysApply: true
 ---
 
-# Session Bootstrap — MANDATORY First Action
+# Session bootstrap
 
-**YOUR FIRST ACTION in every new session — before responding to ANY message — is to run this Bash command:**
+## When
 
-```bash
-cat /tmp/session_bootstrapped 2>/dev/null
-```
+- Run at the start of every session, before the user's request.
 
-**If the file is missing or empty** → run: `Skill(skill: "tessl__trusted-memory")`
+## Action
 
-Then write the sentinel: `echo "done" > /tmp/session_bootstrapped`
+- Invoke `Skill(skill: "tessl__trusted-memory")`.
+- Loads group-shared `trusted/` memory, weekly logs, and `highlights.md`.
 
-**If the file exists and contains "done"** → bootstrap already ran this session, skip.
+## Sentinel ownership
 
-This is not optional. This is not background context. This is Step 0 of every session. If you respond to a user message without checking this first, you are violating this rule.
+- The skill runs `needs-bootstrap` and `register-session` itself.
+- Sentinel `/tmp/session_bootstrapped` stores the current `$CLAUDE_SESSION_ID`.
+- Re-bootstrap on a missing or mismatched sentinel; skip on a match.
+- Do NOT read or write the sentinel by hand.
+- A hand-written value does NOT satisfy the session-id contract.
+
+## Reference
+
+- Sentinel and state shape: `skills/trusted-memory/state-schema.md`.
