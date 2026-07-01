@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.79 — 2026-07-01
+
 ### CI — gate pyright diagnostics at zero findings (`#55`)
 
 Adopts `jbaruch/coding-policy: language-diagnostics` for this Python tile, which previously ran only `ruff` (format/lint, scoped to `tests/`) with no type/diagnostics gate. New `pyrightconfig.json` resolves the skill-bundle `sys.path.insert` layout via per-bundle `executionEnvironments` (each `skills/*/scripts` dir is its own root so `memory_write` resolves within `trusted-memory`; `tests/` gets both bundles on `extraPaths`) — the layout from `jbaruch/nanoclaw-travel#81`. A first-ever pyright run (`typeCheckingMode: standard`) surfaced 47 findings; all fixed at the source with no blanket `# type: ignore` / `# pyright: basic` suppression.
