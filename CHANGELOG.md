@@ -5,19 +5,25 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
-### Fix — reword `session-bootstrap.md` to clear registry moderation
+### Fix — rewrite `session-bootstrap.md`: defer to the skill, clear moderation
 
-The trusted-memory session bootstrap rule was failing the tessl registry's
-automated intent-review moderation, which read its framing as a prompt-injection
-pattern — coercive language (`MANDATORY`, "not optional", "you are violating
-this rule"), "before responding to ANY message", a sentinel described as if to
-hide that the skill ran, and a `2>/dev/null` silent read. That blocked every
-publish since `0.1.78` from becoming the served "latest" (installs stayed pinned
-to `0.1.77`). Reworded to state the behavior plainly — it loads the agent's own
-local memory via `tessl__trusted-memory` once per session, sentinel used for
-idempotency — with identical semantics (check sentinel → load if absent → write
-sentinel). The `2>/dev/null` is replaced with a `[ -f ... ]` test, which also
-resolves the silent-error-swallowing this file carried.
+Two problems in one rule. **Correctness:** the always-on bootstrap rule
+hand-rolled its own sentinel with `cat /tmp/session_bootstrapped` /
+`echo "done" > /tmp/session_bootstrapped`. That predated and contradicted the
+tile's real, tested contract: the sentinel stores `$CLAUDE_SESSION_ID` (see
+`state-schema.md`), `needs-bootstrap.py` re-bootstraps on missing-or-mismatch,
+and `register-session.py` writes it — all invoked internally by the
+`tessl__trusted-memory` skill. Writing a literal `"done"` would clobber the
+session-id value the skill relies on, breaking the next session's
+needs-bootstrap comparison. The rule now defers entirely to the skill (which
+self-gates and owns its sentinel) and no longer touches `/tmp/session_bootstrapped`
+by hand. **Moderation:** the old framing failed the tessl registry's
+intent-review — coercive language (`MANDATORY`, "not optional", "you are
+violating this rule"), "before responding to ANY message", a sentinel described
+as if to hide that the skill ran, and a `2>/dev/null` silent read — which
+blocked every publish since `0.1.78` from becoming the served "latest" (installs
+stayed pinned to `0.1.77`). The rewrite states the behavior plainly and drops
+those patterns. README's rule table updated to match.
 
 ## 0.1.79 — 2026-07-01
 
