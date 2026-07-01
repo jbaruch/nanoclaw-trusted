@@ -115,7 +115,7 @@ def _query_recent_failures(conn: sqlite3.Connection) -> list[dict]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("--db", default="/workspace/store/messages.db")
     parser.add_argument("--stuck-grace-minutes", type=int, default=5)
     parser.add_argument("--message-row-warn", type=int, default=100_000)

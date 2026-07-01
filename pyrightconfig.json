@@ -1,0 +1,16 @@
+{
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "standard",
+  "executionEnvironments": [
+    { "root": "skills/trusted-memory/scripts" },
+    { "root": "skills/system-status/scripts" },
+    {
+      "root": "tests",
+      "extraPaths": [
+        "skills/trusted-memory/scripts",
+        "skills/system-status/scripts"
+      ]
+    },
+    { "root": "." }
+  ]
+}
