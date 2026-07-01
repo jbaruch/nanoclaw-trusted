@@ -56,7 +56,10 @@ def append_module(tmp_path, monkeypatch):
 
 
 def _run(module, argv, capsys, stdin_text=None):
-    """Invoke main(argv); return (rc, payload, stderr)."""
+    """Invoke main(argv); return (rc, payload, stderr).
+
+    payload is the parsed last JSON line, or an empty dict when the
+    command produced no stdout (no caller distinguishes the two)."""
     if stdin_text is not None:
         original = sys.stdin
         from io import StringIO
@@ -69,7 +72,7 @@ def _run(module, argv, capsys, stdin_text=None):
     else:
         rc = module.main(argv)
     captured = capsys.readouterr()
-    payload = json.loads(captured.out.strip().splitlines()[-1]) if captured.out.strip() else None
+    payload = json.loads(captured.out.strip().splitlines()[-1]) if captured.out.strip() else {}
     return rc, payload, captured.err
 
 
@@ -82,7 +85,7 @@ def test_dedup_skips_existing_line(append_module, capsys):
     daily_file = group_dir / "2026-05-01.md"
     daily_file.parent.mkdir(parents=True, exist_ok=True)
     daily_file.write_text(
-        "# Daily Summary — 2026-05-01\n\n" "- 09:00 UTC — alpha\n" "- 10:00 UTC — beta\n"
+        "# Daily Summary — 2026-05-01\n\n- 09:00 UTC — alpha\n- 10:00 UTC — beta\n"
     )
     pre_mtime = daily_file.stat().st_mtime_ns
     pre_inode = daily_file.stat().st_ino

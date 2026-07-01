@@ -23,13 +23,22 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 HELPER_PATH = REPO_ROOT / "skills/trusted-memory/scripts/memory_write.py"
 
 
-@pytest.fixture
-def mw():
-    """Fresh module per test so monkeypatches don't bleed across cases."""
-    spec = importlib.util.spec_from_file_location("memory_write_under_test", HELPER_PATH)
+def _load_memory_write(module_name: str):
+    """Load memory_write.py under a unique module name.
+
+    Self-contained (not conftest.load_script) so it also works inside
+    the spawned child process in the crash-atomicity test."""
+    spec = importlib.util.spec_from_file_location(module_name, HELPER_PATH)
+    assert spec is not None and spec.loader is not None, "cannot load memory_write spec"
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.fixture
+def mw():
+    """Fresh module per test so monkeypatches don't bleed across cases."""
+    return _load_memory_write("memory_write_under_test")
 
 
 def test_normalize_collapses_whitespace_runs(mw):
@@ -78,17 +87,11 @@ def test_dedup_filter_block_granularity(mw):
     )
     # Same block, identical text — must dedup.
     dup_block = (
-        "## 2026-05-21 09:00 UTC\n"
-        "**What:** thing\n"
-        "**Context:** somewhere\n"
-        "**Promote to:** unsure\n"
+        "## 2026-05-21 09:00 UTC\n**What:** thing\n**Context:** somewhere\n**Promote to:** unsure\n"
     )
     # Different timestamp = different entry; must keep.
     new_block = (
-        "## 2026-05-21 10:00 UTC\n"
-        "**What:** thing\n"
-        "**Context:** somewhere\n"
-        "**Promote to:** unsure\n"
+        "## 2026-05-21 10:00 UTC\n**What:** thing\n**Context:** somewhere\n**Promote to:** unsure\n"
     )
     kept, dropped = mw.dedup_filter(existing, [dup_block, new_block], split="\n\n")
     assert kept == [new_block]
@@ -211,9 +214,7 @@ def _child_writer(target_path: str, ready_event, hold_event) -> None:
     `real_replace` unless the parent fails to kill it within
     `hold_event.wait()`'s timeout, in which case the test fails on
     `exitcode` rather than racing the timing."""
-    spec = importlib.util.spec_from_file_location("memory_write_child", HELPER_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    module = _load_memory_write("memory_write_child")
 
     real_replace = os.replace
 
@@ -270,6 +271,7 @@ def test_atomic_write_smoke_kill_mid_write_leaves_file_intact(tmp_path):
         "child never entered gated_replace; mkstemp/fsync likely failed "
         "before reaching the os.replace seam — check stderr from the child"
     )
+    assert proc.pid is not None  # started (ready_event fired), so pid is assigned
     os.kill(proc.pid, signal.SIGKILL)
     proc.join(timeout=5)
 
