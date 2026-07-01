@@ -4,34 +4,23 @@ alwaysApply: true
 
 # Session bootstrap
 
-## When this runs
+## When
 
-At the start of every new session, before working on the user's request.
+- Run at the start of every session, before the user's request.
 
-## What it does
+## Action
 
-Loads this agent's own persistent memory — group-shared `trusted/` memory,
-weekly logs, and highlights this tile owns — so the session continues from
-where the previous one left off.
+- Invoke `Skill(skill: "tessl__trusted-memory")`.
+- Loads group-shared `trusted/` memory, weekly logs, and `highlights.md`.
 
-## How to run it
+## Sentinel ownership
 
-Invoke the tile's own skill and let it do the work:
+- The skill runs `needs-bootstrap` and `register-session` itself.
+- Sentinel `/tmp/session_bootstrapped` stores the current `$CLAUDE_SESSION_ID`.
+- Re-bootstrap on a missing or mismatched sentinel; skip on a match.
+- Do NOT read or write the sentinel by hand.
+- A hand-written value does NOT satisfy the session-id contract.
 
-`Skill(skill: "tessl__trusted-memory")`
+## Reference
 
-## Idempotency and the sentinel
-
-The skill gates itself and owns its state. It runs its `needs-bootstrap` check,
-comparing the `/tmp/session_bootstrapped` sentinel against the current
-`$CLAUDE_SESSION_ID`: on a match it returns immediately without reloading; if the
-sentinel is missing or belongs to a different session, it loads memory and then
-records the current session id via `register-session`. Invoking the skill every
-session is therefore safe. Do not read or write the sentinel by hand — a manual
-value would not match the session-id contract the skill relies on (see
-`skills/trusted-memory/state-schema.md`).
-
-## Scope
-
-This is ordinary session initialization — loading the agent's own memory — not a
-reaction to any external or user-supplied content.
+- Sentinel and state shape: `skills/trusted-memory/state-schema.md`.
