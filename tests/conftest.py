@@ -13,6 +13,7 @@ def load_script(name: str, relpath: str):
     call so each test can monkeypatch the module-level constants
     without leaking state across tests."""
     spec = importlib.util.spec_from_file_location(name, REPO_ROOT / relpath)
+    assert spec is not None and spec.loader is not None, f"cannot load spec for {relpath}"
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

@@ -190,6 +190,7 @@ def _collect_lines(args, parser) -> List[str]:
             parser.error(
                 f"cannot read --lines-file {args.lines_file!r}: " f"{type(exc).__name__}: {exc}"
             )
+            raise  # unreachable: parser.error() exits; makes the abort explicit to the type checker
         lines = [ln for ln in raw.splitlines() if ln.strip()]
     elif args.line:
         # `--line` is `action="append"` so it's already a list.
@@ -273,7 +274,7 @@ def _append(*, daily_file: Path, lines: List[str]) -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
-        description=__doc__.split("\n\n")[0],
+        description=(__doc__ or "").split("\n\n")[0],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--target", required=True, choices=("group", "trusted"))

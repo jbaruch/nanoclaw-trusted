@@ -5,6 +5,14 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### CI — gate pyright diagnostics at zero findings (`#55`)
+
+Adopts `jbaruch/coding-policy: language-diagnostics` for this Python tile, which previously ran only `ruff` (format/lint, scoped to `tests/`) with no type/diagnostics gate. New `pyrightconfig.json` resolves the skill-bundle `sys.path.insert` layout via per-bundle `executionEnvironments` (each `skills/*/scripts` dir is its own root so `memory_write` resolves within `trusted-memory`; `tests/` gets both bundles on `extraPaths`) — the layout from `jbaruch/nanoclaw-travel#81`. A first-ever pyright run (`typeCheckingMode: standard`) surfaced 47 findings; all fixed at the source with no blanket `# type: ignore` / `# pyright: basic` suppression.
+
+Four were real source-side holes: `__doc__.split("\n\n")[0]` in three argparse descriptions (`__doc__` is `str | None`, crashes if a module ever loses its docstring) now guard with `(__doc__ or "")`; `append-to-daily-log.py`'s `--lines-file` read had `raw` possibly-unbound because pyright doesn't model `argparse.error()` as `NoReturn` — an explicit `raise` after `parser.error()` states the abort invariant visibly. The 43 test findings were resolved with typed helpers per the rule's guidance (assert-not-None readers over scattered ignores): the `_run`/`_run_and_capture` capsys helpers return `{}` rather than `None` on empty stdout (narrowing 33 Optional-subscripts on `payload[...]`; no caller distinguished the `None` case), `conftest.load_script` and a self-contained `test_memory_write._load_memory_write` assert `spec`/`spec.loader` are non-None (`spec_from_file_location` returns `ModuleSpec | None`), and `os.kill` is guarded by `assert proc.pid is not None` (`Process.pid` is `int | None` before start).
+
+`pyright==1.1.408` pinned in `requirements-dev.txt` (pyright is version-sensitive; the pin is the exact version the zero-findings result was verified against) and wired into `test.yml` as a `Types (pyright)` step before pytest, alongside the existing `ruff` step. Pyright's scope is the whole repo (scripts + tests), deliberately broader than ruff's tests-only scope, since the source-side findings are the point of the rule.
+
 ## 0.1.78 — 2026-06-24
 
 ### Skills — document canonical `## Addresses` block in `user_profile.md` (`#53`)

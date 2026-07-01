@@ -48,7 +48,7 @@ def _run(module, argv, capsys, *, stdin_text=None):
     else:
         rc = module.main(argv)
     captured = capsys.readouterr()
-    payload = json.loads(captured.out.strip().splitlines()[-1]) if captured.out.strip() else None
+    payload = json.loads(captured.out.strip().splitlines()[-1]) if captured.out.strip() else {}
     return rc, payload, captured.err
 
 

@@ -56,7 +56,7 @@ def _run_and_capture(module, capsys):
     except SystemExit as e:
         rc = e.code
     captured = capsys.readouterr().out.strip()
-    payload = json.loads(captured.splitlines()[-1]) if captured else None
+    payload = json.loads(captured.splitlines()[-1]) if captured else {}
     return rc, payload
 
 
