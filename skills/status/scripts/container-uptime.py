@@ -42,6 +42,10 @@ def compute_uptime(now: datetime.datetime) -> dict:
     started_dt = datetime.datetime.fromtimestamp(epoch, tz=datetime.timezone.utc)
     started = started_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
     age = now - started_dt
+    # Clamp to zero: clock skew or filesystem timestamp anomalies can put
+    # the mtime ahead of `now`, and a "-1d 23h" uptime helps nobody.
+    if age < datetime.timedelta(0):
+        age = datetime.timedelta(0)
     uptime_text = f"{age.days}d {age.seconds // 3600}h (since {started})"
     return {"uptime_text": uptime_text, "started": started}
 

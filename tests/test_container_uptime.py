@@ -86,6 +86,24 @@ def test_partial_day_uptime_formats_hours(container_uptime, monkeypatch, tmp_pat
     assert result["uptime_text"].startswith("0d 5h")
 
 
+def test_future_mtime_clamps_to_zero_uptime(container_uptime, monkeypatch, tmp_path):
+    """Clock skew or filesystem anomalies can put /.dockerenv's mtime
+    ahead of `now`. The age must clamp to zero — '0d 0h', never a
+    negative '-1d 23h' — while `started` still reports the raw mtime."""
+    fake_dockerenv = tmp_path / ".dockerenv"
+    fake_dockerenv.touch()
+    one_hour_after_now = int(FIXED_NOW.timestamp()) + 3600
+    os.utime(fake_dockerenv, (one_hour_after_now, one_hour_after_now))
+    monkeypatch.setattr(container_uptime, "DOCKERENV_PATH", str(fake_dockerenv))
+
+    result = container_uptime.compute_uptime(FIXED_NOW)
+
+    assert result["uptime_text"].startswith("0d 0h"), (
+        f"Future mtime must clamp to zero uptime, got {result['uptime_text']!r}"
+    )
+    assert result["started"] == "2023-11-16T23:13:20Z"
+
+
 def test_main_emits_single_line_json():
     """The CLI entrypoint must produce a single-line JSON payload on
     stdout that downstream callers can parse (the SKILL.md example
