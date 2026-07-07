@@ -5,7 +5,7 @@
 `jbaruch/nanoclaw-trusted` is a **NanoClaw tile** — an installable package (managed by [`tessl`](https://tessl.io)) that ships behavioural rules and runtime skills for **trusted and main NanoClaw containers**. It is not a standalone application. It is loaded alongside the core tile (`jbaruch/nanoclaw-core`) and provides the trusted-tier layer on top of it.
 
 The tile's two deliverables are:
-1. **Rules** (`rules/*.md`) — markdown files with `alwaysApply: true` YAML frontmatter, injected into the agent's context at runtime.
+1. **Rules** (`rules/*.md`) — markdown files with YAML frontmatter, injected into the agent's context at runtime. Always-on rules declare `alwaysApply: true`; conditional rules declare `alwaysApply: false` plus an `applyTo:` scope (see `README.md` and `jbaruch/coding-policy: rule-frontmatter`).
 2. **Skills** (`skills/*/SKILL.md`) — prose-and-action markdown that the `Skill()` tool executes inside live containers.
 
 ---
@@ -16,7 +16,8 @@ The tile's two deliverables are:
 tile.json                        # Tile manifest: name, version, rules map, skills map
 README.md                        # Auto-maintained rules/skills summary table
 CHANGELOG.md                     # Chronological change log — read before adding anything
-rules/                           # One .md per rule, all with alwaysApply: true frontmatter
+rules/                           # One .md per rule; frontmatter is alwaysApply: true
+                                 # or alwaysApply: false + applyTo: (conditional)
 skills/
   trusted-memory/
     SKILL.md                     # Session bootstrap + rolling memory update skill
@@ -24,6 +25,9 @@ skills/
     scripts/
       needs-bootstrap.py         # Exit 0 = bootstrap needed, exit 1 = skip
       register-session.py        # Atomic state + sentinel writer (fcntl.LOCK_EX)
+      append-to-daily-log.py     # Locked, dedup-filtered daily-log appender
+      append-daily-discovery.py  # Locked, dedup-filtered discoveries appender
+      memory_write.py            # Shared write_atomic + dedup_filter primitives
   system-status/
     SKILL.md                     # Read-only NanoClaw health probe
     scripts/
@@ -32,12 +36,17 @@ tests/
   conftest.py                    # load_script() helper for kebab-case imports
   test_needs_bootstrap.py
   test_register_session.py
+  test_append_to_daily_log.py
+  test_append_daily_discovery.py
+  test_memory_write.py
   test_system_status_checks.py
 pyproject.toml                   # pytest + ruff config (ruff scoped to tests/ only)
-requirements-dev.txt             # pytest==8.3.4  ruff==0.7.4
+pyrightconfig.json               # pyright config (whole repo: scripts + tests)
+requirements-dev.txt             # pytest==8.3.4  ruff==0.7.4  pyright==1.1.408
 .github/workflows/
-  test.yml                       # CI: ruff lint → ruff format check → pytest
-  publish-tile.yml               # On merge to main: skill review → tile lint → publish
+  test.yml                       # CI: ruff lint → ruff format check → pyright → pytest
+  publish-tile.yml               # On merge to main: changed-skills review → tile lint
+                                 # → stamp CHANGELOG → patch-version publish
 ```
 
 ---
@@ -52,16 +61,20 @@ python -m pip install -r requirements-dev.txt
 python -m ruff check tests/
 python -m ruff format --check tests/
 
+# Type-check (whole repo: scripts + tests, per pyrightconfig.json)
+python -m pyright
+
 # Run tests
 python -m pytest
 ```
 
-CI (`test.yml`) runs lint first, then pytest, on every PR and every push to `main`. Both must pass before merging.
+CI (`test.yml`) runs ruff lint, then pyright at zero findings, then pytest, on every PR and every push to `main`. All three must pass before merging.
 
-The publish workflow (`publish-tile.yml`) additionally runs:
+The publish workflow (`publish-tile.yml`) additionally runs, in order:
 ```bash
-tessl skill review --threshold 85 skills/<name>/SKILL.md   # quality gate ≥85
+tessl skill review --threshold 85 skills/<name>/SKILL.md   # changed skills only (git diff loop)
 tessl tile lint .
+# then: stamp CHANGELOG heading → tesslio/patch-version-publish@v1
 ```
 These require the `TESSL_TOKEN` secret and only run on `main`.
 
@@ -75,12 +88,14 @@ These require the `TESSL_TOKEN` secret and only run on `main`.
 - Scripts that perform concurrent file writes take `fcntl.LOCK_EX` on a sibling `<target>.lock` file for the full read-modify-write cycle to prevent clobbering.
 
 ### Rules
-- Every rule file under `rules/` **must** start with YAML frontmatter declaring `alwaysApply: true`:
+- Every rule file under `rules/` **must** start with YAML frontmatter. Always-on rules declare `alwaysApply: true`; conditional rules declare `alwaysApply: false` plus an `applyTo: "<glob list> — <natural-language clause>"` scope:
   ```markdown
   ---
-  alwaysApply: true
+  alwaysApply: false
+  applyTo: "** — when querying messages.db or referencing its column names"
   ---
   ```
+- Pick the scope per `jbaruch/coding-policy: rule-frontmatter` — stay `alwaysApply: true` when the rule mixes file-bound and broad guidance.
 - Cross-tile rule references use explicit wording: `the \`jbaruch/nanoclaw-core\` tile's \`rules/<name>.md\``.
 - Add a corresponding entry to `tile.json` under the `"rules"` key and a row to the `README.md` rules table for every new rule file.
 
@@ -93,7 +108,7 @@ These require the `TESSL_TOKEN` secret and only run on `main`.
 - Keep `"entrypoint": "README.md"` present.
 
 ### CHANGELOG.md
-- Add an entry under `## Unreleased` for every substantive change. The publish action moves unreleased entries to a versioned section.
+- Add an **un-headed `### ` entry block** at the top of the file (below the header comment) for every substantive change — no `## Unreleased` heading, ever. The publish workflow's stamp-changelog step inserts the `## <version> — <date>` heading above the un-headed blocks before publishing.
 
 ---
 
