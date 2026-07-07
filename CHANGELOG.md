@@ -5,6 +5,21 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### Fix — harden `append-daily-discovery.py` input validation and dedup key (`#65`, `#66`)
+
+Two fixes to the daily-discoveries writer. **Validation (`#66`):** field values
+containing CR/LF could smuggle extra Markdown structure — a fake `## <ts>`
+header or forged `**What:**` marker — into `daily_discoveries.md`, which is
+loaded back as trusted operational memory. All three fields now reject
+embedded CR/LF as a usage error (exit 2). **Dedup (`#65`):** the dedup key
+included the `## <timestamp>` line, so a retry one minute later re-appended
+the "duplicate" the script's own docstring promised to drop. The key is now
+the normalized block body with the timestamp header stripped; `dedup_filter`
+in `memory_write.py` gains a pluggable `normalize` callable (default
+unchanged) so daily-log writers keep line-granularity behavior. Regression
+tests cover per-field CR/LF rejection, same-fields/different-timestamp
+dropped, and different-fields/same-timestamp appended.
+
 ## 0.1.80 — 2026-07-01
 
 ### Fix — rewrite `session-bootstrap.md`: defer to the skill, clear moderation
