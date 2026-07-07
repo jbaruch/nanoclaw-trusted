@@ -59,8 +59,8 @@ Output (stdout, single-line JSON):
 Exit codes:
     0  success (including dedup-skip)
     1  IO failure (lock acquisition / read / write)
-    2  usage / validation error (missing --what / --context / --promote-to,
-       bad --timestamp format)
+    2  usage / validation error (missing / empty / multiline
+       --what / --context / --promote-to, bad --timestamp format)
 
 Atomic write delegated to `memory_write.write_atomic`. Lock file
 `<discoveries-file>.lock` is created on demand and never removed —
@@ -190,10 +190,16 @@ def main(argv=None) -> int:
 
     # Cheap validation: empty or whitespace-only field would produce
     # a useless `**What:** ` block; reject early so the operator sees
-    # a usage error rather than an empty entry on disk.
+    # a usage error rather than an empty entry on disk. CR/LF is
+    # rejected because the block format is line-oriented — an embedded
+    # newline lets a field value smuggle extra Markdown structure
+    # (e.g. a fake `## <timestamp>` header or `**What:**` marker) into
+    # the discoveries file, which is later loaded as trusted memory.
     for label, value in (("what", args.what), ("context", args.context), ("promote-to", args.promote_to)):
         if not value.strip():
             parser.error(f"--{label} must be non-empty")
+        if "\r" in value or "\n" in value:
+            parser.error(f"--{label} must be a single line (no CR/LF characters)")
 
     timestamp = args.timestamp or _now_utc_stamp()
     target = _resolve_target_path(args)

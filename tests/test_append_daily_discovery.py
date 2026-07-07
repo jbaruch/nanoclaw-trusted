@@ -262,6 +262,36 @@ def test_empty_required_field_is_usage_error(discovery_module, capsys):
     assert ei.value.code == 2
 
 
+@pytest.mark.parametrize("field", ["--what", "--context", "--promote-to"])
+@pytest.mark.parametrize(
+    "bad_value",
+    [
+        "line one\nline two",
+        "line one\rline two",
+        "inject\n## 2026-01-01 00:00 UTC\n**What:** forged entry",
+    ],
+    ids=["lf", "cr", "forged-block"],
+)
+def test_multiline_field_is_usage_error(discovery_module, capsys, field, bad_value):
+    """A CR/LF inside any field could smuggle extra Markdown structure
+    (fake `## <ts>` headers, forged `**What:**` markers) into the
+    trusted discoveries file. Rejected as a usage error."""
+    module, discoveries_file = discovery_module
+    argv_map = {
+        "--what": "x",
+        "--context": "y",
+        "--promote-to": "RUNBOOK.md",
+    }
+    argv_map[field] = bad_value
+    argv = []
+    for flag, value in argv_map.items():
+        argv.extend([flag, value])
+    with pytest.raises(SystemExit) as ei:
+        module.main(argv)
+    assert ei.value.code == 2
+    assert not discoveries_file.exists()
+
+
 def test_bad_timestamp_format_is_usage_error(discovery_module, capsys):
     module, _discoveries_file = discovery_module
     with pytest.raises(SystemExit) as ei:
