@@ -117,6 +117,26 @@ def test_dedup_filter_drops_empty_candidates(mw):
     assert dropped == ["", "   ", "\n\t"]
 
 
+def test_dedup_filter_custom_normalize(mw):
+    """A caller-supplied `normalize` defines the dedup key. Here the
+    key strips a leading `## <ts>` header line, so the same body under
+    a different timestamp is a duplicate — the seam the daily-
+    discoveries writer uses for retry idempotency."""
+
+    def body_only(block: str) -> str:
+        lines = [ln for ln in block.split("\n") if not ln.startswith("## ")]
+        return mw.normalize_for_comparison("\n".join(lines))
+
+    existing = "## 2026-05-21 09:00 UTC\n**What:** fact\n"
+    candidates = [
+        "## 2026-05-21 10:00 UTC\n**What:** fact\n",
+        "## 2026-05-21 10:00 UTC\n**What:** other fact\n",
+    ]
+    kept, dropped = mw.dedup_filter(existing, candidates, split="\n\n", normalize=body_only)
+    assert kept == ["## 2026-05-21 10:00 UTC\n**What:** other fact\n"]
+    assert dropped == ["## 2026-05-21 10:00 UTC\n**What:** fact\n"]
+
+
 def test_dedup_filter_empty_existing(mw):
     """First write to an empty file: every non-empty candidate kept,
     within-batch dedup still applies."""

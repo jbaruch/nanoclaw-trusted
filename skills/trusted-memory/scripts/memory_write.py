@@ -28,6 +28,7 @@ import os
 import re
 import tempfile
 from pathlib import Path
+from typing import Callable
 
 _WHITESPACE_RUN = re.compile(r"\s+")
 
@@ -52,13 +53,14 @@ def dedup_filter(
     candidates: list[str],
     *,
     split: str = "\n",
+    normalize: Callable[[str], str] = normalize_for_comparison,
 ) -> tuple[list[str], list[str]]:
     """Return `(kept, dropped)` from `candidates`.
 
     `existing` is the current file content (caller has already read
     it under whatever lock applies). It is split on `split` to derive
     the existing entry set. Each existing piece is normalized via
-    `normalize_for_comparison`; empty pieces are ignored.
+    `normalize`; empty pieces are ignored.
 
     A candidate is dropped when its normalized form matches any
     existing normalized piece, or when an earlier candidate in the
@@ -70,10 +72,17 @@ def dedup_filter(
     daily-discoveries writer where each entry is a multi-line block
     (`## YYYY-MM-DD HH:MM UTC` + `**What:**` + `**Context:**` +
     `**Promote to:**`).
+
+    `normalize` defaults to `normalize_for_comparison`. A caller whose
+    entries carry per-write noise (e.g. a wall-clock timestamp line)
+    passes a normalizer that strips the noise first, so the dedup key
+    is the stable part of the entry. The normalizer must return "" for
+    entries that are empty after stripping — those are surfaced as
+    dropped, same as whitespace-only candidates.
     """
     existing_norms: set[str] = set()
     for piece in existing.split(split):
-        norm = normalize_for_comparison(piece)
+        norm = normalize(piece)
         if norm:
             existing_norms.add(norm)
 
@@ -81,7 +90,7 @@ def dedup_filter(
     dropped: list[str] = []
     seen_in_batch: set[str] = set()
     for candidate in candidates:
-        norm = normalize_for_comparison(candidate)
+        norm = normalize(candidate)
         if not norm:
             # Empty / whitespace-only entries are not real entries;
             # surface them as dropped so the caller can fail loud
