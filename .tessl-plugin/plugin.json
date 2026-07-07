@@ -1,0 +1,39 @@
+{
+  "name": "jbaruch/nanoclaw-trusted",
+  "version": "0.1.88",
+  "description": "Rules for trusted NanoClaw groups. Shared memory, session bootstrap, cross-group memory updates. Loaded for trusted and main containers only.",
+  "private": false,
+  "skills": [
+    "skills/status",
+    "skills/system-status",
+    "skills/trusted-memory"
+  ],
+  "rules": [
+    "rules/daily-discoveries-rule.md",
+    "rules/identity-compaction-recovery.md",
+    "rules/async-tasks-extended.md",
+    "rules/skills-policy.md",
+    "rules/composio-vs-agents.md",
+    "rules/proactive-participation.md",
+    "rules/reply-threading.md",
+    "rules/context-bootstrap-bg-agents.md",
+    "rules/container-trust-levels.md",
+    "rules/global-memory.md",
+    "rules/duplicate-prevention.md",
+    "rules/pending-response-tracking.md",
+    "rules/no-orphan-tasks.md",
+    "rules/ground-truth-trusted.md",
+    "rules/session-bootstrap.md",
+    "rules/verification-protocol.md",
+    "rules/wiki-awareness.md",
+    "rules/compaction-aware-summaries.md",
+    "rules/proactive-fact-saving.md",
+    "rules/memory-file-locations.md",
+    "rules/no-silent-defer.md",
+    "rules/installed-content-immutable.md",
+    "rules/identity-dual-handle.md",
+    "rules/local-context-anchoring.md",
+    "rules/github-data-via-gh.md",
+    "rules/messages-db-schema.md"
+  ]
+}
