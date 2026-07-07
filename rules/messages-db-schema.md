@@ -12,6 +12,7 @@ The shared SQLite at `/workspace/store/messages.db` is accessed via `python3 -c 
 - `trigger_word` — the actual column is `trigger_pattern`
 - `chat_jid` on `registered_groups` — it's not a column there; only on `messages`
 - `trusted` as a column — lives inside `container_config` JSON, not its own column
+- `last_result` on `task_run_logs` — that column lives on `scheduled_tasks`; `task_run_logs` carries `status`, `result`, `error`
 
 ## Tables
 
@@ -22,6 +23,8 @@ The shared SQLite at `/workspace/store/messages.db` is accessed via `python3 -c 
 - **`tz_state`** (singleton, `id = 1`): `id`, `current_tz`, `home_tz`, `scheduler_tz`, `schema_version`.
 - **`follow_me_tasks`**: `name` (PK), `local_time`, `schedule_value`, `last_run_date`, `pending_run_at`, `schema_version`, `updated_at`.
 - **`phase_completions`**: `phase` (PK), `last_completed`, `metadata`, `updated_at`, `schema_version`.
+- **`sessions`**: `group_folder`, `session_name` (default `'default'`), `session_id`. Composite PK (`group_folder`, `session_name`) — one row per group session, NOT a singleton. A bare `LIMIT 1` without `WHERE` returns an arbitrary group's row once more than one group has a session; `register-session.py` documents its single-row assumption inline.
+- **`task_run_logs`**: `id` (PK autoincrement), `task_id` (FK → `scheduled_tasks.id`), `run_at`, `duration_ms`, `status`, `result`, `error`. There is no `last_result` column — that name belongs on `scheduled_tasks`. `run_at` is ISO-8601 with `T` and `Z` (`2026-07-07T21:18:12.277Z`), NOT SQLite's `datetime('now')` shape — compare against a matching ISO string, never against `datetime(...)` output. Observed `status` values: `success`, `error`, `killed`, `precheck_skipped`.
 
 ## Prefer MCP Tools for Mutations
 

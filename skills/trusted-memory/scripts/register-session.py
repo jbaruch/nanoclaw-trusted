@@ -7,6 +7,9 @@ Usage:
 Reads:
     - Session ID from `/workspace/store/messages.db` (`sessions` table,
       first row). Falls back to `None` when the table is empty.
+      `sessions` is keyed by (`group_folder`, `session_name`) — see
+      `rules/messages-db-schema.md`; the single-row assumption behind
+      "first row" is documented at the query site below.
     - Session name from `$NANOCLAW_SESSION_NAME` (defaults to `default`).
     - Current session ID from `$CLAUDE_SESSION_ID` (for the bootstrap
       sentinel).
@@ -85,6 +88,14 @@ def read_session_id_from_db() -> Optional[str]:
     try:
         conn = sqlite3.connect(MESSAGES_DB, timeout=MESSAGES_DB_TIMEOUT_SECONDS)
         try:
+            # `sessions` is keyed by (group_folder, session_name), one
+            # row per group session (rules/messages-db-schema.md). The
+            # host currently writes a single row — the main group's
+            # session, which is the container this script runs in — so
+            # a bare LIMIT 1 is deterministic today. If the host starts
+            # registering sessions for other groups, this query must
+            # gain a WHERE on this container's group_folder; there is
+            # no container-side way to derive that folder name yet.
             row = conn.execute(
                 "SELECT session_id FROM sessions LIMIT 1"
             ).fetchone()
