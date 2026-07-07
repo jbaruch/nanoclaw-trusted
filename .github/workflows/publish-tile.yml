@@ -27,7 +27,7 @@ jobs:
           token: ${{ secrets.TESSL_TOKEN }}
 
       # Reviews only the skills whose files changed in this push, instead
-      # of every skill in the tile every time. Action lives in
+      # of every skill in the plugin every time. Action lives in
       # jbaruch/coding-policy so improvements land once and propagate to
       # every consumer plugin.
       - name: Skill review (changed only)
@@ -35,8 +35,8 @@ jobs:
         with:
           threshold: '85'
 
-      - name: Lint tile
-        run: tessl tile lint .
+      - name: Lint plugin
+        run: tessl plugin lint .
 
       # Stamp the CHANGELOG's top un-headed `### ` entries with the version
       # patch-version-publish is about to assign, so the published artifact and

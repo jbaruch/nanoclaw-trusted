@@ -22,9 +22,9 @@ Thumbs.db
 .env.local
 
 # Tessl consumer-side scaffolding (dev-time local install via `tessl install`).
-# The tile itself ships from tile.json; coding-policy is pulled at scaffold
+# The plugin itself ships from .tessl-plugin/plugin.json; coding-policy is pulled at scaffold
 # time for the install-reviewer skill, not committed. Matches the
-# `nanoclaw-core` public-tile pattern (no committed `.tessl/`, `tessl.json`,
+# `nanoclaw-core` public-plugin pattern (no committed `.tessl/`, `tessl.json`,
 # or agent-rule pointer files).
 tessl.json
 .tessl/

@@ -3,9 +3,9 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 
 [tool.ruff]
-# Scoped to tests/ until tile-wide adoption is decided in a separate PR
+# Scoped to tests/ until plugin-wide adoption is decided in a separate PR
 # per `jbaruch/coding-policy: ci-safety` (don't smuggle CI changes for
-# things outside this PR's stated scope). Existing tile scripts under
+# things outside this PR's stated scope). Existing plugin scripts under
 # skills/*/scripts/ predate this lint config and are out-of-scope here.
 src = ["tests"]
 include = ["tests/**/*.py"]

@@ -23,7 +23,7 @@ previous `tessl__check-system-health` skill in trusted had three
 `python3 -c` blocks; this script replaces them.
 
 Per `jbaruch/coding-policy: testing-standards`: covered by
-`tests/test_system_status_checks.py` in this tile.
+`tests/test_system_status_checks.py` in this plugin.
 
 Usage:
     system-status-checks.py [--db <path>] [--stuck-grace-minutes <int>]
