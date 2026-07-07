@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.85 — 2026-07-07
+
 ### Fix — harden `append-daily-discovery.py` input validation and dedup key (`#65`, `#66`)
 
 Two fixes to the daily-discoveries writer. **Validation (`#66`):** field values
