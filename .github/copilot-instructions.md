@@ -28,6 +28,8 @@ skills/
       append-to-daily-log.py     # Locked, dedup-filtered daily-log appender
       append-daily-discovery.py  # Locked, dedup-filtered discoveries appender
       memory_write.py            # Shared write_atomic + dedup_filter primitives
+                                 # (snake_case on purpose — siblings `import memory_write`;
+                                 # kebab-case would break the import)
   system-status/
     SKILL.md                     # Read-only NanoClaw health probe
     scripts/

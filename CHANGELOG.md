@@ -8,7 +8,7 @@
 ### Docs — refresh `.github/copilot-instructions.md` to current repo policy (`#68`)
 
 Three stale claims steered cloud agents wrong: "every rule uses
-`alwaysApply: true`" (five rules now use `alwaysApply: false` + `applyTo`
+`alwaysApply: true`" (nine rules now use `alwaysApply: false` + `applyTo`
 per `jbaruch/coding-policy: rule-frontmatter`), "CI is ruff + pytest"
 (the pyright gate landed in `#55`), and "add CHANGELOG entries under
 `## Unreleased`" (the stamp-changelog step expects un-headed `###` blocks).
