@@ -15,7 +15,8 @@ so the same fact got re-logged on every retry. Per `jbaruch/nanoclaw
 #365` this helper closes both gaps: a per-file `fcntl.LOCK_EX` lock
 serializes writers, and the candidate block is dedup-filtered against
 the file's existing blocks (split on blank lines, whitespace-
-normalized) so retries are idempotent.
+normalized, `## <timestamp>` header line ignored) so retries are
+idempotent even when the retry lands on a later wall-clock minute.
 
 Usage:
     append-daily-discovery.py
@@ -34,12 +35,17 @@ Behavior:
     - If the target file is absent it's created with a
       `# Daily Discoveries\n\n` header before the first block is
       appended.
-    - The candidate block is whitespace-normalized and compared to
-      every existing block in the file (blocks delimited by blank
-      lines). If the normalized candidate matches an existing
-      normalized block — or normalizes to empty — the write is
-      skipped; the file is not touched at all (no mtime / inode
-      bump) and the script exits 0 with `appended: false`.
+    - The candidate block is whitespace-normalized with its
+      `## <timestamp>` header line stripped, then compared to every
+      existing block in the file (blocks delimited by blank lines,
+      normalized the same way). The timestamp is excluded from the
+      dedup key on purpose: a retry of the same discovery carries a
+      fresh wall-clock stamp, and a timestamp-sensitive key would
+      defeat the retry idempotency this script exists to provide.
+      If the candidate matches an existing block — or normalizes to
+      empty — the write is skipped; the file is not touched at all
+      (no mtime / inode bump) and the script exits 0 with
+      `appended: false`.
 
 Output (stdout, single-line JSON):
     {
@@ -82,7 +88,7 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
-from memory_write import dedup_filter, write_atomic  # noqa: E402
+from memory_write import dedup_filter, normalize_for_comparison, write_atomic  # noqa: E402
 
 DEFAULT_DISCOVERIES_FILE = "/workspace/trusted/memory/daily_discoveries.md"
 ENV_OVERRIDE = "NANOCLAW_DISCOVERIES_FILE"
@@ -114,6 +120,19 @@ def _format_block(timestamp: str, what: str, context: str, promote_to: str) -> s
     )
 
 
+_TS_HEADER_RE = re.compile(r"^## \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC\s*$")
+
+
+def _normalize_ignoring_timestamp(block: str) -> str:
+    """Dedup key for a discovery block: the whitespace-normalized body
+    with the `## <timestamp>` header line stripped. A retry carries a
+    fresh wall-clock stamp; keying on the timestamp would re-append
+    the same discovery on every retry."""
+    unified = block.replace("\r\n", "\n").replace("\r", "\n")
+    body = [line for line in unified.split("\n") if not _TS_HEADER_RE.match(line)]
+    return normalize_for_comparison("\n".join(body))
+
+
 def _append(*, target: Path, block: str) -> dict:
     """Read existing content (or initialize header), filter the block
     against existing blocks, atomic-write back if not a duplicate.
@@ -125,7 +144,9 @@ def _append(*, target: Path, block: str) -> dict:
         existing = FILE_HEADER
         created = True
 
-    kept, dropped = dedup_filter(existing, [block], split="\n\n")
+    kept, dropped = dedup_filter(
+        existing, [block], split="\n\n", normalize=_normalize_ignoring_timestamp
+    )
 
     if not kept:
         # Duplicate (or the candidate normalized to empty, which

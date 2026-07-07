@@ -4,7 +4,9 @@ Covers the documented contract:
   - Block-format entry written (`## ts` / `**What:**` / `**Context:**`
     / `**Promote to:**`) when the candidate isn't a duplicate.
   - File created with `# Daily Discoveries\\n\\n` header on first call.
-  - Dedup skips an already-present block (whitespace-normalized).
+  - Dedup skips an already-present block (whitespace-normalized,
+    `## <ts>` header excluded from the key so retries with a fresh
+    wall-clock stamp stay idempotent).
   - All-duplicate path leaves mtime/inode unchanged.
   - Existing on-disk content is never rewritten on the dedup-skip
     path (no destructive migration).
@@ -190,12 +192,13 @@ def test_duplicate_with_whitespace_variation_still_skipped(discovery_module, cap
     assert payload["dropped_duplicate"] is True
 
 
-def test_different_timestamp_is_not_duplicate(discovery_module, capsys):
-    """Same body but different `## ts` line = different entry. The
-    deer-flow whitespace-normalization pattern preserves timestamp
-    differences by design — semantic same-fact dedup is a separate
-    problem this script deliberately does not solve."""
-    module, _discoveries_file = discovery_module
+def test_same_fields_different_timestamp_is_duplicate(discovery_module, capsys):
+    """Regression for the retry-idempotency contract: a retry of the
+    same discovery carries a fresh wall-clock stamp. The dedup key is
+    the block body with the `## ts` line stripped, so the retry is
+    dropped and the file (including the original timestamp) is left
+    untouched."""
+    module, discoveries_file = discovery_module
     _run(
         module,
         [
@@ -210,6 +213,7 @@ def test_different_timestamp_is_not_duplicate(discovery_module, capsys):
         ],
         capsys,
     )
+    pre_text = discoveries_file.read_text()
     rc, payload, _err = _run(
         module,
         [
@@ -225,8 +229,53 @@ def test_different_timestamp_is_not_duplicate(discovery_module, capsys):
         capsys,
     )
     assert rc == 0
+    assert payload["appended"] is False
+    assert payload["dropped_duplicate"] is True
+    assert payload["timestamp"] is None
+    content = discoveries_file.read_text()
+    assert content == pre_text
+    assert "## 2026-05-21 10:00 UTC" not in content
+
+
+def test_different_body_same_timestamp_appends(discovery_module, capsys):
+    """Two distinct discoveries logged within the same minute share a
+    timestamp — both must land. Only the body participates in the
+    dedup key."""
+    module, discoveries_file = discovery_module
+    _run(
+        module,
+        [
+            "--what",
+            "first fact",
+            "--context",
+            "ctx",
+            "--promote-to",
+            "unsure",
+            "--timestamp",
+            "2026-05-21 09:00 UTC",
+        ],
+        capsys,
+    )
+    rc, payload, _err = _run(
+        module,
+        [
+            "--what",
+            "second fact",
+            "--context",
+            "ctx",
+            "--promote-to",
+            "unsure",
+            "--timestamp",
+            "2026-05-21 09:00 UTC",
+        ],
+        capsys,
+    )
+    assert rc == 0
     assert payload["appended"] is True
     assert payload["dropped_duplicate"] is False
+    content = discoveries_file.read_text()
+    assert "**What:** first fact" in content
+    assert "**What:** second fact" in content
 
 
 def test_missing_required_field_is_usage_error(discovery_module, capsys):
