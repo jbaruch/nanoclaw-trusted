@@ -116,6 +116,9 @@
     },
     "trusted-memory": {
       "path": "skills/trusted-memory/SKILL.md"
+    },
+    "status": {
+      "path": "skills/status/SKILL.md"
     }
   }
 }

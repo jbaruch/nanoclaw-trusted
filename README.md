@@ -47,6 +47,7 @@ Always-on rules are loaded into every turn's context. Conditional rules are load
 
 | Skill | Description |
 |-------|-------------|
+| [status](skills/status/SKILL.md) | User-facing `/status` health report — session context, container uptime, workspace mounts, tool availability, scheduled-task snapshot. Adopted from `nanoclaw-core` (core#68) so its workspace/mount/IPC detail only mounts in trusted and main containers. Complements `system-status` (orchestrator-DB probe), it does not replace it. |
 | [system-status](skills/system-status/SKILL.md) | Read-only system-status probe for trusted-tier NanoClaw containers — surfaces stuck scheduled tasks, DB size, and recent task-run failures from the orchestrator's SQLite. Use as part of heartbeat or standalone. Renamed from `check-system-health` (which collided with the admin tile's same-named skill, per `nanoclaw-admin#65`); admin keeps the canonical full health probe with dismiss-mechanism management. |
 | [trusted-memory](skills/trusted-memory/SKILL.md) | Session bootstrap and rolling memory updates for trusted containers. On session start, reads MEMORY.md (permanent facts), RUNBOOK.md (operational workflows), recent daily and weekly logs, and highlights.md to restore context. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences. |
 
