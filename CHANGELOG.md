@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.87 — 2026-07-07
+
 ### Skills — adopt `/status` from nanoclaw-core (`jbaruch/nanoclaw-trusted#71`, `jbaruch/nanoclaw-core#68`)
 
 nanoclaw-core ships into every container, so its `/status` skill ("no access restrictions") let untrusted-group participants enumerate workspace mounts, group-folder filenames, IPC presence, and container restart timing — reconnaissance the untrusted tile's security rules exist to prevent. The task-metadata half of the original finding was already dead host-side (`writeTasksSnapshot` never writes `current_tasks.json` into untrusted containers); the environment-recon half is closed structurally by moving the skill here: tile placement is host-enforced mount scope, not prompt-level redaction. Skill, `container-uptime.py`, and its tests adopted verbatim apart from the scope note (was "works in any group") and fixture-loading adaptation; the `tessl__status` mount path is unchanged since the skill name is unchanged. Complements `system-status` (orchestrator-DB probe) — different jobs. Core-side removal: `jbaruch/nanoclaw-core#68`.
