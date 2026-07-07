@@ -28,17 +28,31 @@ def system_status_checks():
     return load_script("system_status_checks_under_test", SCRIPT_REL)
 
 
+# Fixed reference time for the recent-failures window (injected via
+# the script's `--now-utc` test seam per `coding-policy:
+# testing-standards` — control the clock, no wall-clock dependence).
+REF_NOW = "2026-07-07T12:00:00Z"
+WITHIN_24H = "2026-07-07T10:00:00.000Z"
+OUTSIDE_24H = "2026-07-05T10:00:00.000Z"
+
+
 def _build_test_db(path) -> None:
-    """Create a minimal `messages.db` with the schema the probe queries.
-    Tests populate rows via `_seed_*` helpers per scenario."""
+    """Create a minimal `messages.db` with the production shape of the
+    tables the probe queries (`task_run_logs` columns per
+    `rules/messages-db-schema.md` — verified against the live host DB).
+    Tests populate rows via `_insert_run_log` per scenario."""
     conn = sqlite3.connect(str(path))
     conn.executescript(
         """
         CREATE TABLE messages (id INTEGER PRIMARY KEY, ts TEXT);
         CREATE TABLE task_run_logs (
-            task_id TEXT,
-            run_at TEXT,
-            last_result TEXT
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL,
+            run_at TEXT NOT NULL,
+            duration_ms INTEGER NOT NULL,
+            status TEXT NOT NULL,
+            result TEXT,
+            error TEXT
         );
         CREATE TABLE scheduled_tasks (
             id TEXT PRIMARY KEY,
@@ -50,6 +64,14 @@ def _build_test_db(path) -> None:
     )
     conn.commit()
     conn.close()
+
+
+def _insert_run_log(conn, task_id, run_at, status, *, result=None, error=None):
+    conn.execute(
+        "INSERT INTO task_run_logs (task_id, run_at, duration_ms, status, result, error) "
+        "VALUES (?, ?, 100, ?, ?, ?)",
+        (task_id, run_at, status, result, error),
+    )
 
 
 def _run(module, monkeypatch, capsys, *args):
@@ -116,20 +138,62 @@ def test_recent_task_failure_within_24h(system_status_checks, monkeypatch, capsy
     db = tmp_path / "messages.db"
     _build_test_db(db)
     conn = sqlite3.connect(str(db))
-    recent = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
-    conn.execute(
-        "INSERT INTO task_run_logs VALUES ('task-fail-1', ?, 'fatal error: timeout reached')",
-        (recent,),
-    )
+    _insert_run_log(conn, "task-fail-1", WITHIN_24H, "error", error="fatal error: timeout reached")
     conn.commit()
     conn.close()
 
-    code, out, _ = _run(system_status_checks, monkeypatch, capsys, "--db", str(db))
+    code, out, _ = _run(
+        system_status_checks, monkeypatch, capsys, "--db", str(db), "--now-utc", REF_NOW
+    )
     payload = json.loads(out)
     assert code == 0
     assert len(payload["recent_failures"]) == 1
     assert payload["recent_failures"][0]["task_id"] == "task-fail-1"
+    assert payload["recent_failures"][0]["error_summary"] == "fatal error: timeout reached"
     assert any("recent task failures" in a for a in payload["alerts"])
+
+
+def test_killed_run_counts_as_failure_with_result_fallback(
+    system_status_checks, monkeypatch, capsys, tmp_path
+):
+    """`killed` is a failure status; with `error` NULL the summary
+    falls back to `result`."""
+    db = tmp_path / "messages.db"
+    _build_test_db(db)
+    conn = sqlite3.connect(str(db))
+    _insert_run_log(conn, "task-killed-1", WITHIN_24H, "killed", result="timed out after 600s")
+    conn.commit()
+    conn.close()
+
+    code, out, _ = _run(
+        system_status_checks, monkeypatch, capsys, "--db", str(db), "--now-utc", REF_NOW
+    )
+    payload = json.loads(out)
+    assert code == 0
+    assert len(payload["recent_failures"]) == 1
+    assert payload["recent_failures"][0]["error_summary"] == "timed out after 600s"
+
+
+def test_non_failure_statuses_within_window_are_excluded(
+    system_status_checks, monkeypatch, capsys, tmp_path
+):
+    """`success` and `precheck_skipped` runs are not failures even when
+    their `result` text happens to contain the word "error" — the
+    filter keys on `status`, not on substring-matching free text."""
+    db = tmp_path / "messages.db"
+    _build_test_db(db)
+    conn = sqlite3.connect(str(db))
+    _insert_run_log(conn, "task-ok", WITHIN_24H, "success", result="recovered from error, all good")
+    _insert_run_log(conn, "task-skip", WITHIN_24H, "precheck_skipped", result='{"events":[]}')
+    conn.commit()
+    conn.close()
+
+    code, out, _ = _run(
+        system_status_checks, monkeypatch, capsys, "--db", str(db), "--now-utc", REF_NOW
+    )
+    payload = json.loads(out)
+    assert code == 0
+    assert payload["recent_failures"] == []
 
 
 def test_old_task_failure_outside_24h_window_is_excluded(
@@ -138,18 +202,31 @@ def test_old_task_failure_outside_24h_window_is_excluded(
     db = tmp_path / "messages.db"
     _build_test_db(db)
     conn = sqlite3.connect(str(db))
-    old = (datetime.now(timezone.utc) - timedelta(hours=48)).strftime("%Y-%m-%d %H:%M:%S")
-    conn.execute(
-        "INSERT INTO task_run_logs VALUES ('task-old', ?, 'error: gone')",
-        (old,),
-    )
+    _insert_run_log(conn, "task-old", OUTSIDE_24H, "error", error="error: gone")
     conn.commit()
     conn.close()
 
-    code, out, _ = _run(system_status_checks, monkeypatch, capsys, "--db", str(db))
+    code, out, _ = _run(
+        system_status_checks, monkeypatch, capsys, "--db", str(db), "--now-utc", REF_NOW
+    )
     payload = json.loads(out)
     assert code == 0
     assert payload["recent_failures"] == []
+
+
+def test_bad_now_utc_format_is_usage_error(system_status_checks, monkeypatch, capsys, tmp_path):
+    db = tmp_path / "messages.db"
+    _build_test_db(db)
+    code, _out, _err = _run(
+        system_status_checks,
+        monkeypatch,
+        capsys,
+        "--db",
+        str(db),
+        "--now-utc",
+        "2026-07-07 12:00:00",  # space separator, not the canonical shape
+    )
+    assert code == 2
 
 
 def test_message_rowcount_above_threshold_alerts(
@@ -190,15 +267,10 @@ def test_task_log_rowcount_above_threshold_alerts(
     db = tmp_path / "messages.db"
     _build_test_db(db)
     conn = sqlite3.connect(str(db))
-    # Pre-date all rows by 48h so they're outside the recent-failures
-    # 24h window — keeps this test focused on the rowcount-threshold
-    # alert and prevents the recent-failures alert from also firing.
-    old = (datetime.now(timezone.utc) - timedelta(hours=48)).strftime("%Y-%m-%d %H:%M:%S")
+    # `success` rows never hit the recent-failures filter — keeps this
+    # test focused on the rowcount-threshold alert.
     for i in range(20):
-        conn.execute(
-            "INSERT INTO task_run_logs VALUES (?, ?, 'success')",
-            (f"task-{i}", old),
-        )
+        _insert_run_log(conn, f"task-{i}", OUTSIDE_24H, "success", result="ok")
     conn.commit()
     conn.close()
 
@@ -210,6 +282,8 @@ def test_task_log_rowcount_above_threshold_alerts(
         str(db),
         "--task-log-row-warn",
         "10",
+        "--now-utc",
+        REF_NOW,
     )
     payload = json.loads(out)
     assert code == 0

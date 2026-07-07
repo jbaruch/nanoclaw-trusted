@@ -22,10 +22,24 @@ SCRIPT_REL = "skills/trusted-memory/scripts/register-session.py"
 
 
 def _make_messages_db(path, session_id):
+    """Production shape of `sessions` per `rules/messages-db-schema.md`
+    (verified against the live host DB): keyed by
+    (`group_folder`, `session_name`), one row per group session."""
     conn = sqlite3.connect(str(path))
-    conn.execute("CREATE TABLE sessions (session_id TEXT)")
+    conn.execute(
+        "CREATE TABLE sessions ("
+        "  group_folder TEXT NOT NULL,"
+        "  session_name TEXT NOT NULL DEFAULT 'default',"
+        "  session_id TEXT NOT NULL,"
+        "  PRIMARY KEY (group_folder, session_name)"
+        ")"
+    )
     if session_id is not None:
-        conn.execute("INSERT INTO sessions (session_id) VALUES (?)", (session_id,))
+        conn.execute(
+            "INSERT INTO sessions (group_folder, session_name, session_id) "
+            "VALUES ('telegram_swarm', 'default', ?)",
+            (session_id,),
+        )
     conn.commit()
     conn.close()
 
