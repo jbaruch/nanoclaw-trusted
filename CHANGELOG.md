@@ -5,6 +5,25 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### Fix — reconcile `messages-db-schema` rule with its consumers; repair recent-failures probe (`#69`)
+
+`rules/messages-db-schema.md` omitted two tables shipped scripts rely on:
+`sessions` (read by `register-session.py`) and `task_run_logs` (read by
+`system-status-checks.py`). Both are now documented with columns verified
+against the live host DB (2026-07-07). The verification surfaced a real
+production bug: the recent-failures probe selected a `last_result` column
+that doesn't exist on `task_run_logs` — every production run raised
+`OperationalError` (surfaced only as a query-failed alert), so task-failure
+detection was silently broken; its 24h window also compared ISO-8601 `T`/`Z`
+`run_at` values against SQLite `datetime('now')` output. The probe now
+filters `status IN ('error','killed')`, summarizes from
+`coalesce(error, result)`, and takes the cutoff as a matching ISO string
+computed in Python (new `--now-utc` test seam). `sessions` is keyed by
+(`group_folder`, `session_name`); `register-session.py`'s single-row
+`LIMIT 1` assumption is documented at the query site. Test fixtures for both
+consumers now build the production table shapes so future schema drift fails
+in tests.
+
 ## 0.1.85 — 2026-07-07
 
 ### Fix — harden `append-daily-discovery.py` input validation and dedup key (`#65`, `#66`)
