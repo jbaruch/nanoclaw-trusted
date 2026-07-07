@@ -98,9 +98,9 @@ def test_future_mtime_clamps_to_zero_uptime(container_uptime, monkeypatch, tmp_p
 
     result = container_uptime.compute_uptime(FIXED_NOW)
 
-    assert result["uptime_text"].startswith("0d 0h"), (
-        f"Future mtime must clamp to zero uptime, got {result['uptime_text']!r}"
-    )
+    assert result["uptime_text"].startswith(
+        "0d 0h"
+    ), f"Future mtime must clamp to zero uptime, got {result['uptime_text']!r}"
     assert result["started"] == "2023-11-16T23:13:20Z"
 
 
