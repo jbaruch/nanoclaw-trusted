@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.86 — 2026-07-07
+
 ### Fix — reconcile `messages-db-schema` rule with its consumers; repair recent-failures probe (`#69`)
 
 `rules/messages-db-schema.md` omitted two tables shipped scripts rely on:
