@@ -30,9 +30,13 @@ Usage:
                             [--message-row-warn <int>]
                             [--task-log-row-warn <int>]
                             [--db-size-mb-warn <int>]
+                            [--now-utc <YYYY-MM-DDTHH:MM:SSZ>]
 
     --db                   Path to the messages.db (default
                            `/workspace/store/messages.db`).
+    --now-utc              Reference time override for the
+                           recent-failures window (test seam);
+                           defaults to now UTC.
     --stuck-grace-minutes  How long past `next_run` an active task
                            must be to count as stuck. Default 5.
                            Mirrors the prior inline check.
@@ -72,7 +76,7 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 
 def _now_iso() -> str:
@@ -97,17 +101,35 @@ def _query_row_counts(conn: sqlite3.Connection) -> dict[str, int]:
     return {"messages": msgs, "task_run_logs": logs}
 
 
-def _query_recent_failures(conn: sqlite3.Connection) -> list[dict]:
+def _failure_cutoff_iso(now: datetime) -> str:
+    """24h-ago cutoff in the same ISO-8601 `T`/`Z` shape the host
+    writes to `task_run_logs.run_at` (`2026-07-07T21:18:12.277Z`).
+    SQLite's `datetime('now', ...)` output uses a space separator and
+    compares incorrectly against that shape, so the cutoff is computed
+    here and passed as a parameter."""
+    return (now - timedelta(hours=24)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+
+def _query_recent_failures(
+    conn: sqlite3.Connection, cutoff_iso: str
+) -> list[dict]:
     """Failures within the last 24h. The dismiss file lives in admin's
     domain and is NOT consulted here; trusted reports verbatim and
-    the operator decides what to do (per the SKILL.md contract)."""
+    the operator decides what to do (per the SKILL.md contract).
+
+    `task_run_logs` columns per `rules/messages-db-schema.md`:
+    `status` (`success` / `error` / `killed` / `precheck_skipped`),
+    `error`, `result` — there is no `last_result` column. A failure is
+    a run with status `error` or `killed`; the summary prefers `error`
+    and falls back to `result`."""
     rows = conn.execute(
-        "SELECT task_id, run_at, substr(coalesce(last_result, ''), 1, 200) "
+        "SELECT task_id, run_at, substr(coalesce(error, result, ''), 1, 200) "
         "FROM task_run_logs "
-        "WHERE run_at >= datetime('now', '-24 hours') "
-        "  AND coalesce(last_result, '') LIKE '%error%' "
+        "WHERE run_at >= ? "
+        "  AND status IN ('error', 'killed') "
         "ORDER BY run_at DESC "
-        "LIMIT 20"
+        "LIMIT 20",
+        (cutoff_iso,),
     ).fetchall()
     return [
         {"task_id": r[0], "run_at": r[1], "error_summary": r[2]} for r in rows
@@ -121,7 +143,26 @@ def main() -> int:
     parser.add_argument("--message-row-warn", type=int, default=100_000)
     parser.add_argument("--task-log-row-warn", type=int, default=10_000)
     parser.add_argument("--db-size-mb-warn", type=int, default=500)
+    parser.add_argument(
+        "--now-utc",
+        help=(
+            "reference time override `YYYY-MM-DDTHH:MM:SSZ` for the "
+            "recent-failures window (test seam); defaults to now UTC"
+        ),
+    )
     args = parser.parse_args()
+
+    if args.now_utc:
+        try:
+            now = datetime.strptime(args.now_utc, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=timezone.utc
+            )
+        except ValueError:
+            parser.error(
+                f"--now-utc {args.now_utc!r} must match `YYYY-MM-DDTHH:MM:SSZ`"
+            )
+    else:
+        now = datetime.now(timezone.utc)
 
     payload: dict = {
         "checked_at": _now_iso(),
@@ -172,7 +213,9 @@ def main() -> int:
             payload["alerts"].append(f"row-counts query failed: {e}")
         queries_attempted += 1
         try:
-            payload["recent_failures"] = _query_recent_failures(conn)
+            payload["recent_failures"] = _query_recent_failures(
+                conn, _failure_cutoff_iso(now)
+            )
             queries_succeeded += 1
         except sqlite3.Error as e:
             payload["alerts"].append(f"recent-failures query failed: {e}")
