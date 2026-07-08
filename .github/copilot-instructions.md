@@ -27,13 +27,18 @@ skills/
       register-session.py        # Atomic state + sentinel writer (fcntl.LOCK_EX)
       append-to-daily-log.py     # Locked, dedup-filtered daily-log appender
       append-daily-discovery.py  # Locked, dedup-filtered discoveries appender
-      memory_write.py            # Shared write_atomic + dedup_filter primitives
-                                 # (snake_case on purpose — siblings `import memory_write`;
-                                 # kebab-case would break the import)
+      memory_write.py            # Helper module (not a CLI entrypoint): shared
+                                 # write_atomic + dedup_filter primitives. snake_case
+                                 # on purpose — siblings `import memory_write`;
+                                 # kebab-case would break the import
   system-status/
     SKILL.md                     # Read-only NanoClaw health probe
     scripts/
       system-status-checks.py    # JSON-producing SQLite probe script
+  status/
+    SKILL.md                     # /status — container uptime + environment snapshot
+    scripts/
+      container-uptime.py        # JSON-producing uptime probe (adopted from nanoclaw-core)
 tests/
   conftest.py                    # load_script() helper for kebab-case imports
   test_needs_bootstrap.py
@@ -42,6 +47,7 @@ tests/
   test_append_daily_discovery.py
   test_memory_write.py
   test_system_status_checks.py
+  test_container_uptime.py
 pyproject.toml                   # pytest + ruff config (ruff scoped to tests/ only)
 pyrightconfig.json               # pyright config (whole repo: scripts + tests)
 requirements-dev.txt             # pytest==8.3.4  ruff==0.7.4  pyright==1.1.408
@@ -133,14 +139,20 @@ Tests use `monkeypatch` to redirect all I/O paths (sentinel files, DB paths, sta
 ## Key Concepts for Working in This Tile
 
 ### trusted-memory skill
-Manages session bootstrap and rolling memory updates for trusted containers. Two scripts:
+Manages session bootstrap and rolling memory updates for trusted containers. Four CLI entrypoints plus one helper module:
 - `needs-bootstrap.py` — compares `/tmp/session_bootstrapped` to `$CLAUDE_SESSION_ID`. Exit 0 = bootstrap needed; exit 1 = skip.
 - `register-session.py` — atomically writes `/workspace/group/session-state.json` (schema_version: 1, per-session subtree + back-compat top-level `session_id`) and the sentinel at `/tmp/session_bootstrapped`.
+- `append-to-daily-log.py` — appends line entries to the daily cross-group log under `fcntl.LOCK_EX`, dedup-filtered against existing lines.
+- `append-daily-discovery.py` — appends the four-line discovery block to `daily_discoveries.md` under the same lock; dedup key excludes the timestamp header so retries are idempotent; rejects CR/LF in field values.
+- `memory_write.py` — helper module (`import memory_write`), the single home for `write_atomic` and `dedup_filter`.
 
 State schema is documented in `skills/trusted-memory/state-schema.md`. Reader skills must treat unknown `schema_version > 1` as "no usable prior state".
 
 ### system-status skill
 Read-only SQLite probe against `/workspace/store/messages.db`. Reports stuck scheduled tasks, row counts/DB size alerts, and recent task failures. Does **not** manage the dismiss mechanism (that lives in the admin tile). On clean pass, emits nothing.
+
+### status skill
+`/status` — container uptime + environment snapshot via `container-uptime.py`. Adopted from nanoclaw-core (trusted-tier placement closes an environment-recon gap for untrusted groups). Complements `system-status`: `status` reports this container, `system-status` probes the orchestrator DB.
 
 ### Memory file locations
 | Path | Contents |
