@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.89 — 2026-07-08
+
 ### Chore — migrate legacy `tile.json` to `.tessl-plugin/plugin.json` (`#67`)
 
 `tessl plugin lint` warned the `tile.json` manifest form was deprecated with
