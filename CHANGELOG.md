@@ -18,7 +18,11 @@ wording reconciled to "plugin" where it named the manifest or the
 a script docstring, and the stale `tile.json` references in
 `.github/copilot-instructions.md`. NanoClaw's own "tile" domain vocabulary
 (cross-references to the core/admin/travel packages, the `tessl__promote-tiles`
-skill, the `publish-tile.yml` filename) is left intact.
+skill, the `publish-tile.yml` filename) is left intact. Adds the
+`.tesslignore` required by `context-artifacts` to keep CI, test, and dev-only
+artifacts out of the published plugin (`tessl plugin pack` confirms the
+shipped set is unchanged — only `rules/`, `skills/`, `README.md`, and the
+manifest).
 
 ## 0.1.88 — 2026-07-08
 
