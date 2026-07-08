@@ -347,10 +347,7 @@ def main(argv=None) -> int:
             )
             return 1
     finally:
-        try:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
+        # Closing the fd releases the flock; no explicit LOCK_UN needed.
         lock_f.close()
 
     if result["out_of_order"]:

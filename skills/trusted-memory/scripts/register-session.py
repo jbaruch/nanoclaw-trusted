@@ -202,14 +202,7 @@ def main() -> None:
             )
             sys.exit(1)
     finally:
-        # Lock released automatically when lock_f closes, but be
-        # explicit so the intent is obvious to readers.
-        try:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            # Already released or fd invalidated — lock_f.close() below
-            # handles the rest. Nothing actionable; skip the stderr.
-            pass
+        # Closing the fd releases the flock; no explicit LOCK_UN needed.
         lock_f.close()
 
     # Refuse to write an empty sentinel. An empty string would match the
