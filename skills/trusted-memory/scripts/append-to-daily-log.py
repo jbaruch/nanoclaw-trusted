@@ -306,8 +306,7 @@ def main(argv=None) -> int:
     try:
         target_dir = _resolve_target_dir(args.target, args)
     except ValueError as exc:
-        parser.error(str(exc))
-        return 2  # parser.error exits 2; this is for type-checkers
+        parser.error(str(exc))  # NoReturn: prints usage to stderr and exits 2
 
     date_str = args.date or _today_utc()
     daily_file = Path(target_dir) / f"{date_str}.md"
