@@ -9,7 +9,7 @@
 
 `tessl plugin lint` warned the `tile.json` manifest form was deprecated with
 removal planned. `tessl plugin migrate` converted the manifest verbatim
-(name, version, description, `private` flag, 2 skills, 26 rules; the unused
+(name, version, description, `private` flag, 3 skills, 26 rules; the unused
 `entrypoint` field dropped) and `tile.json` is removed — lint now reports the
 plugin valid with no deprecation warning. Residual package-sense "tile"
 wording reconciled to "plugin" where it named the manifest or the
