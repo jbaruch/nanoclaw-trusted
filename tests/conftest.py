@@ -7,7 +7,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def load_script(name: str, relpath: str):
     """Load a hyphenated-filename Python script as a module.
 
-    Tile scripts use kebab-case filenames (e.g. `register-session.py`)
+    Plugin scripts use kebab-case filenames (e.g. `register-session.py`)
     that aren't valid Python module identifiers, so they can't be
     imported normally. This loader sets up a unique module name per
     call so each test can monkeypatch the module-level constants

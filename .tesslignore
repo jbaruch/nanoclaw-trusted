@@ -1,0 +1,22 @@
+# Exclude dev-only, CI, and build artifacts from the published plugin
+# (jbaruch/coding-policy: context-artifacts). The plugin ships only the
+# manifest-declared rules/ and skills/, the README, and the manifest.
+
+# CI / workflow config
+.github/
+
+# Test suite and dev tooling
+tests/
+pyproject.toml
+requirements-dev.txt
+pyrightconfig.json
+.env.example
+
+# Developer-facing docs / ADRs (not runtime plugin content)
+docs/
+
+# Tooling caches and VCS metadata
+.pytest_cache/
+.ruff_cache/
+.gitignore
+.gitattributes

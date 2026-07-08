@@ -13,7 +13,7 @@ The tile's two deliverables are:
 ## Repository Layout
 
 ```
-tile.json                        # Tile manifest: name, version, rules map, skills map
+.tessl-plugin/plugin.json        # Plugin manifest: name, version, rules array, skills array
 README.md                        # Auto-maintained rules/skills summary table
 CHANGELOG.md                     # Chronological change log — read before adding anything
 rules/                           # One .md per rule; frontmatter is alwaysApply: true
@@ -53,7 +53,7 @@ pyrightconfig.json               # pyright config (whole repo: scripts + tests)
 requirements-dev.txt             # pytest==8.3.4  ruff==0.7.4  pyright==1.1.408
 .github/workflows/
   test.yml                       # CI: ruff lint → ruff format check → pyright → pytest
-  publish-tile.yml               # On merge to main: changed-skills review → tile lint
+  publish-tile.yml               # On merge to main: changed-skills review → plugin lint
                                  # → stamp CHANGELOG → patch-version publish
 ```
 
@@ -81,7 +81,7 @@ CI (`test.yml`) runs ruff lint, then pyright at zero findings, then pytest, on e
 The publish workflow (`publish-tile.yml`) additionally runs, in order:
 ```bash
 tessl skill review --threshold 85 skills/<name>/SKILL.md   # changed skills only (git diff loop)
-tessl tile lint .
+tessl plugin lint .
 # then: stamp CHANGELOG heading → tesslio/patch-version-publish@v1
 ```
 These require the `TESSL_TOKEN` secret and only run on `main`.
@@ -106,15 +106,14 @@ These require the `TESSL_TOKEN` secret and only run on `main`.
   ```
 - Pick the scope per `jbaruch/coding-policy: rule-frontmatter` — stay `alwaysApply: true` when the rule mixes file-bound and broad guidance.
 - Cross-tile rule references use explicit wording: `the \`jbaruch/nanoclaw-core\` tile's \`rules/<name>.md\``.
-- Add a corresponding entry to `tile.json` under the `"rules"` key and a row to the `README.md` rules table for every new rule file.
+- Add a corresponding entry to `.tessl-plugin/plugin.json` under the `"rules"` key and a row to the `README.md` rules table for every new rule file.
 
 ### Skills
-- Add a corresponding entry to `tile.json` under the `"skills"` key and a row to the `README.md` skills table for every new skill.
+- Add a corresponding entry to `.tessl-plugin/plugin.json` under the `"skills"` key and a row to the `README.md` skills table for every new skill.
 - Installed skills (`/home/node/.claude/skills/`) are **kernel-level read-only** at container runtime — `Write`/`Edit` against them returns `EROFS`. Real changes must flow through the staging → promote (`tessl__promote-tiles`) → publish (`publish-tile.yml`) → update (`./scripts/deploy.sh`) pipeline.
 
-### tile.json
+### .tessl-plugin/plugin.json
 - Bump the `"version"` field for every change shipped to `main` (the `tesslio/patch-version-publish@v1` action does this automatically on the publish workflow run).
-- Keep `"entrypoint": "README.md"` present.
 
 ### CHANGELOG.md
 - Add an **un-headed `### ` entry block** at the top of the file (below the header comment) for every substantive change — no `## Unreleased` heading, ever. The publish workflow's stamp-changelog step inserts the `## <version> — <date>` heading above the un-headed blocks before publishing.

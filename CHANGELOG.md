@@ -5,6 +5,25 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### Chore — migrate legacy `tile.json` to `.tessl-plugin/plugin.json` (`#67`)
+
+`tessl plugin lint` warned the `tile.json` manifest form was deprecated with
+removal planned. `tessl plugin migrate` converted the manifest verbatim
+(name, version, description, `private` flag, 3 skills, 26 rules; the unused
+`entrypoint` field dropped) and `tile.json` is removed — lint now reports the
+plugin valid with no deprecation warning. Residual package-sense "tile"
+wording reconciled to "plugin" where it named the manifest or the
+`tessl plugin lint` command: the publish workflow's lint step and comments,
+`.gitignore`, `pyproject.toml`, `docs/skip-summary-schema.md`, `conftest.py`,
+a script docstring, and the stale `tile.json` references in
+`.github/copilot-instructions.md`. NanoClaw's own "tile" domain vocabulary
+(cross-references to the core/admin/travel packages, the `tessl__promote-tiles`
+skill, the `publish-tile.yml` filename) is left intact. Adds the
+`.tesslignore` required by `context-artifacts` to keep CI, test, and dev-only
+artifacts out of the published plugin (`tessl plugin pack` confirms the
+shipped set is unchanged — only `rules/`, `skills/`, `README.md`, and the
+manifest).
+
 ## 0.1.88 — 2026-07-08
 
 ### Docs — refresh `.github/copilot-instructions.md` to current repo policy (`#68`)

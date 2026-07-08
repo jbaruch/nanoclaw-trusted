@@ -31,4 +31,4 @@ The contract has two actors — the **owner skill** that performed the skip and 
 
 ## Linting (planned)
 
-A pre-publish lint scan on each tile verifies (a) every `## Forbidden patterns` example in `rules/no-silent-defer.md` has a corresponding negative-case test in the implementing skill, and (b) skills that emit `.skip-summary-<tessl-skill-id>.json` follow the lifecycle above (owner writes, surfacer deletes — no stale-file leaks). Tracked under `jbaruch/nanoclaw#277` part B.
+A pre-publish lint scan on each plugin verifies (a) every `## Forbidden patterns` example in `rules/no-silent-defer.md` has a corresponding negative-case test in the implementing skill, and (b) skills that emit `.skip-summary-<tessl-skill-id>.json` follow the lifecycle above (owner writes, surfacer deletes — no stale-file leaks). Tracked under `jbaruch/nanoclaw#277` part B.
