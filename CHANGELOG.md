@@ -5,6 +5,17 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### Docs — refresh `.github/copilot-instructions.md` to current repo policy (`#68`)
+
+Three stale claims steered cloud agents wrong: "every rule uses
+`alwaysApply: true`" (nine rules now use `alwaysApply: false` + `applyTo`
+per `jbaruch/coding-policy: rule-frontmatter`), "CI is ruff + pytest"
+(the pyright gate landed in `#55`), and "add CHANGELOG entries under
+`## Unreleased`" (the stamp-changelog step expects un-headed `###` blocks).
+Repo-layout section also caught up with reality: the three newer
+trusted-memory scripts, their test files, `pyrightconfig.json`, and the
+publish workflow's actual step order.
+
 ## 0.1.87 — 2026-07-07
 
 ### Skills — adopt `/status` from nanoclaw-core (`jbaruch/nanoclaw-trusted#71`, `jbaruch/nanoclaw-core#68`)
