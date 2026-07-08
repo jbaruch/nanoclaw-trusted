@@ -91,7 +91,8 @@ These require the `TESSL_TOKEN` secret and only run on `main`.
 ## Coding Conventions
 
 ### Scripts
-- Script filenames are **kebab-case** (e.g., `register-session.py`, `needs-bootstrap.py`). This means they cannot be imported with `import`; see the test section below.
+- **CLI entrypoint** filenames are **kebab-case** (e.g., `register-session.py`, `needs-bootstrap.py`). This means they cannot be imported with `import`; see the test section below.
+- **Helper modules** imported by sibling scripts are **snake_case** (e.g., `memory_write.py`, imported as `import memory_write`). This is a deliberate exception to the kebab-case rule — do not rename it to kebab-case or the imports break. The kebab-case rule governs entrypoints only.
 - Every script must emit a **single-line JSON status to stdout** (per `jbaruch/coding-policy: script-delegation`). Exit codes remain the authoritative success signal; JSON is for callers that want to log or inspect.
 - Scripts that perform concurrent file writes take `fcntl.LOCK_EX` on a sibling `<target>.lock` file for the full read-modify-write cycle to prevent clobbering.
 
