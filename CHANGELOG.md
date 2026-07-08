@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.88 — 2026-07-08
+
 ### Docs — refresh `.github/copilot-instructions.md` to current repo policy (`#68`)
 
 Three stale claims steered cloud agents wrong: "every rule uses
