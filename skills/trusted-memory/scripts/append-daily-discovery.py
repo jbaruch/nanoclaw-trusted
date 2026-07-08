@@ -267,10 +267,7 @@ def main(argv=None) -> int:
             )
             return 1
     finally:
-        try:
-            fcntl.flock(lock_f.fileno(), fcntl.LOCK_UN)
-        except OSError:
-            pass
+        # Closing the fd releases the flock; no explicit LOCK_UN needed.
         lock_f.close()
 
     result["timestamp"] = timestamp if result["appended"] else None
