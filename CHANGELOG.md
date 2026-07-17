@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.93 — 2026-07-17
+
 ### Fix — retire Composio rules; rules pointed agents at tools that no longer exist (`#79`)
 
 `jbaruch/nanoclaw#793` (closing `#639`, merged `5f9becc6`) removed the Composio
