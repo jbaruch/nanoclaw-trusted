@@ -13,7 +13,7 @@ Extends the core ground-truth rule with verification methods available to truste
 |------------|--------------|
 | Calendar event | `google-calendar.py events-list` |
 | Task/todo status | `google-tasks.py list` / `get` |
-| Email content | The sanitizing Gmail-fetch path — `check-email`, `morning-brief`, `google-fetch` |
+| Email content | The sanitizing Gmail-fetch skills — see `google-access.md` "Exception — sanitizing Gmail-fetch skills" |
 | GitHub PR/issue | `gh` — see the `github-data-via-gh` rule |
 
 Op scripts mount at `/home/node/.claude/skills/tessl__heartbeat/scripts/<script>.py`. `jbaruch/nanoclaw-admin` `rules/google-access.md` is the authority for op names, arg conventions, and the Gmail-fetch exception — this rule does not restate them.
