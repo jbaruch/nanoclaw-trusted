@@ -12,8 +12,8 @@ The contents below were the always-loaded `rules/skill-dependencies.md` rule bef
 3. Runs `heartbeat-checks.py` script (Step 1) — system health checks directly via script
 
 ## Morning Brief (runs daily, 8am local)
-1. Reads Google Calendar via Composio (Step 1)
-2. Reads Google Tasks via Composio (Step 2)
+1. Reads Google Calendar via native REST — `google-calendar.py` (Step 1)
+2. Reads Google Tasks via native REST — `google-tasks.py` (Step 2)
 3. Runs `morning-brief-fetch.py` script (Step 3) — reads `morning-brief-pending.json`
 4. Runs `morning-brief-cfp.py` script (Step 4a) — reads CFP state
 5. Calls `check-calendar` internally (Step 8) — sets up reminders

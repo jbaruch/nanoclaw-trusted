@@ -1,6 +1,6 @@
 ---
 alwaysApply: false
-applyTo: "** — when reading GitHub data via the gh CLI or related Composio GitHub tooling"
+applyTo: "** — when reading GitHub data via the gh CLI"
 ---
 
 # GitHub Data via `gh`
@@ -21,13 +21,13 @@ Don't use `curl https://api.github.com/...` for GitHub data — the unauthentica
 
 Don't hand-roll `Authorization: Bearer "$GITHUB_TOKEN"` onto curl either. Use `gh --json`.
 
-## Composio as Fallback Only
+## No Fallback
 
-The Composio `GITHUB_*` tools (`COMPOSIO_MULTI_EXECUTE_TOOL` → `GITHUB_*`) remain reachable for the rare case `gh` can't express the operation. For the common cases — issue/PR view/edit/comment, workflow run listing, repo/file search, file content fetch — prefer `gh`. If a `gh` invocation appears to require Composio as a workaround, surface that gap explicitly instead of silently routing through Composio.
+`gh` is the only path to GitHub data — there is no second route to fall back on. If an operation appears to be one `gh` can't express, surface that gap explicitly rather than hand-rolling a substitute.
 
 ## Sub-Agents
 
-Sub-agents spawned via `Agent` run inside the same container and inherit `GITHUB_TOKEN` from the env, so `gh` works inside them. Composio MCP, by contrast, is not accessible from sub-agents — another reason to prefer `gh`.
+Sub-agents spawned via `Agent` run inside the same container and inherit `GITHUB_TOKEN` from the env, so `gh` works inside them.
 
 ## Sibling Rules
 

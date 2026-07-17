@@ -13,7 +13,6 @@
     "rules/identity-compaction-recovery.md",
     "rules/async-tasks-extended.md",
     "rules/skills-policy.md",
-    "rules/composio-vs-agents.md",
     "rules/proactive-participation.md",
     "rules/reply-threading.md",
     "rules/context-bootstrap-bg-agents.md",

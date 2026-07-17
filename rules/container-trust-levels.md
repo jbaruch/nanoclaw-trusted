@@ -14,4 +14,4 @@ If a write to `/workspace/group/` fails with `EROFS` / "Read-only file system", 
 
 ## Full capability matrix
 
-The full trust-tier capability matrix (mounts, plugins, Composio access, idle timeout, RAM/CPU caps) lives in `docs/trust-tier-capabilities.md`.
+The full trust-tier capability matrix (mounts, plugins, Google access, idle timeout, RAM/CPU caps) lives in `docs/trust-tier-capabilities.md`.
