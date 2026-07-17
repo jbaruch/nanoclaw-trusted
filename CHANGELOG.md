@@ -5,6 +5,55 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### Fix — retire Composio rules; rules pointed agents at tools that no longer exist (`#79`)
+
+`jbaruch/nanoclaw#793` (closing `#639`, merged `5f9becc6`) removed the Composio
+MCP server from every container, so `mcp__composio__*` no longer resolves.
+Several rules here still instructed agents to reach for it — including
+`composio-vs-agents`, which was `alwaysApply: true` and therefore burned
+context in every trusted container on every turn teaching a dead pattern.
+Google (Calendar, Gmail, Tasks, Drive) now runs over native Google REST
+brokered by the OneCLI gateway, which injects and refreshes the OAuth Bearer
+on the wire so no credential sits in the container (`jbaruch/nanoclaw#638`);
+GitHub is the `gh` CLI with a forwarded `GITHUB_TOKEN`.
+
+**Deleted** `rules/composio-vs-agents.md` — its entire subject is gone. The
+"single call vs spawn an `Agent`" judgment was not re-cut provider-neutrally:
+the rule of thumb it taught (one call with a clear answer → direct tool; think
+between steps → `Agent`) is generic agent-design sense that needs no always-on
+rule to enforce. Re-cut it as its own rule if field evidence says otherwise.
+
+**`rules/ground-truth-trusted.md`** — verification table now names the native
+REST ops (`google-calendar.py events-list`, `google-tasks.py list`/`get`, the
+sanitizing Gmail-fetch path), citing `jbaruch/nanoclaw-admin`
+`rules/google-access.md` as the authority for op names and arg conventions
+rather than restating them (`coding-policy: script-as-black-box`). A new
+availability section records a gap found while writing this: the gateway grants
+Google to both main and trusted, but the op scripts ship in `nanoclaw-admin`,
+which `selectTiles` (`jbaruch/nanoclaw` `src/container-runner.ts`) installs as
+baseline on **main only** — a trusted non-main container has a Google-capable
+gateway and no scripts to drive it unless `tessl__heartbeat` is co-loaded via
+its group's `containerConfig`. Naming the scripts unconditionally would have
+reproduced the exact defect this issue is about under a new tool name, so the
+rule tells the agent to report the claim unverified when they are absent.
+
+**`rules/github-data-via-gh.md`** — `applyTo:` drops its Composio half;
+`## Composio as Fallback Only` becomes `## No Fallback`. `gh` is not "preferred
+over Composio" any more, it is the only path. The sub-agent note loses the
+"sub-agents can't reach Composio MCP" caveat, which the move to CLI/script
+surfaces makes moot.
+
+**`rules/container-trust-levels.md`**, **`docs/trust-tier-capabilities.md`**,
+**`docs/skill-execution-order.md`** — capability matrix restated around what
+exists. The untrusted tier's "No Composio" line is reworded, not dropped: the
+tier gating is still real, only its subject changed — untrusted is gated out of
+Google by OneCLI `secretMode=selective`, which refuses with `access_restricted`.
+
+Surface sync per `coding-policy: context-artifacts`: `.tessl-plugin/plugin.json`
+rules array (26 → 25), README rules table (`composio-vs-agents` row removed,
+`github-data-via-gh` description rewritten), this entry. Historical CHANGELOG
+entries left alone as archive.
+
 ## 0.1.89 — 2026-07-08
 
 ### Chore — migrate legacy `tile.json` to `.tessl-plugin/plugin.json` (`#67`)
