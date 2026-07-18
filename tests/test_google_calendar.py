@@ -18,27 +18,22 @@ that env var at a local fixture server reaches the internally-loaded
 module without monkeypatching across the importlib boundary.
 """
 
-import importlib.util
 import io
 import json
 import threading
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = REPO_ROOT / "skills/google-ops/scripts/google-calendar.py"
+from .conftest import load_script
+
+SCRIPT_REL = "skills/google-ops/scripts/google-calendar.py"
 
 
-def _load() -> Any:
-    spec = importlib.util.spec_from_file_location("google_calendar_under_test", SCRIPT_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def _load():
+    return load_script("google_calendar_under_test", SCRIPT_REL)
 
 
 class _MockServer(HTTPServer):
@@ -93,7 +88,7 @@ def calendar_api(monkeypatch):
     httpd.requests_seen = []
     httpd.response_body = {"items": []}
     httpd.response_status = 200
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    threading.Thread(target=lambda: httpd.serve_forever(poll_interval=0.01), daemon=True).start()
     monkeypatch.setenv(
         "GOOGLE_API_BASES",
         json.dumps({"calendar": f"http://127.0.0.1:{port}/calendar/v3"}),

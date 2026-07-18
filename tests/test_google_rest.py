@@ -23,27 +23,22 @@ leaked into the container — a security regression, not a fallback.
 The local http.server fixture mirrors tests/test_google_calendar.py.
 """
 
-import importlib.util
 import json
 import threading
 import urllib.error
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from pathlib import Path
 from typing import Any, cast
 
 import pytest
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPT_PATH = REPO_ROOT / "skills/google-ops/scripts/google-rest.py"
+from .conftest import load_script
+
+SCRIPT_REL = "skills/google-ops/scripts/google-rest.py"
 
 
-def _load() -> Any:
-    spec = importlib.util.spec_from_file_location("google_rest_under_test", SCRIPT_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def _load():
+    return load_script("google_rest_under_test", SCRIPT_REL)
 
 
 class _MockServer(HTTPServer):
