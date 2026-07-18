@@ -98,6 +98,12 @@ def calendar_api(monkeypatch):
         "GOOGLE_API_BASES",
         json.dumps({"calendar": f"http://127.0.0.1:{port}/calendar/v3"}),
     )
+    # The transport deliberately honours the ambient proxy env (that is how
+    # the OneCLI gateway gets on the request path in production). A proxy set
+    # on the dev machine or CI runner would otherwise silently reroute these
+    # fixture calls, so pin the request path at the loopback server.
+    for var in ("http_proxy", "HTTP_PROXY", "https_proxy", "HTTPS_PROXY", "ALL_PROXY"):
+        monkeypatch.delenv(var, raising=False)
     try:
         yield httpd
     finally:
