@@ -36,10 +36,11 @@ jobs:
       # `run:` step here. Revert to `uses:` once the action grows a native
       # credit-outage input — tracked in jbaruch/coding-policy#188.
       #
-      # Tolerance is fail-SAFE and narrow: ONLY the exact "run out of credits"
-      # signature skips (publishing unreviewed until credits reset, monthly on the
-      # 1st); every other non-zero exit still hard-fails the publish, so a genuine
-      # below-threshold score or tooling error blocks it as before.
+      # Tolerance is fail-SAFE and narrow: ONLY a credit-outage signature (the
+      # "run out of credits" phrase AND a 403) skips, publishing unreviewed until
+      # credits reset (monthly, on the 1st); every other non-zero exit still
+      # hard-fails the publish, so a genuine below-threshold score or tooling
+      # error blocks it as before.
       - name: Skill review (changed only)
         shell: bash
         env:
@@ -111,7 +112,11 @@ jobs:
             printf '%s\n' "$review_out"
             echo "::endgroup::"
             [ "$rc" -eq 0 ] && continue
-            if printf '%s' "$review_out" | grep -qi 'run out of credits'; then
+            # Require BOTH the credit phrase AND the 403 status (fixed-string, not
+            # regex) so only the actual billing outage skips — any other failure
+            # whose text happens to contain the phrase still hard-fails (fail-safe).
+            if printf '%s' "$review_out" | grep -qiF 'run out of credits' \
+               && printf '%s' "$review_out" | grep -qF '403'; then
               # tessl credits reset monthly on the 1st; name the resume date so the
               # skip window is legible. The gate self-heals: every publish re-tries,
               # so a mid-month top-up restores review immediately, and by the 1st
