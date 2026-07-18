@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.97 — 2026-07-18
+
 ### Add — `google-ops` skill: native Google Calendar/Tasks reads for trusted-tier verification (`jbaruch/nanoclaw-admin#456`)
 
 Adds a `google-ops` skill holding the read-only Google op trio (`google-rest.py` transport + `google-calendar.py events-list` + `google-tasks.py list-tasklists`/`list`/`get`) so trusted containers resolve the `ground-truth-trusted.md` verification matrix natively, without co-loading the whole `nanoclaw-admin` tile. `ground-truth-trusted.md` repointed to the `tessl__google-ops` mount and its "needs the heartbeat mount" section rewritten (Calendar/Tasks are trusted-baseline now; only Gmail stays admin-only). Gmail intentionally excluded; the admin-side single-source repoint follows in `nanoclaw-admin`.
