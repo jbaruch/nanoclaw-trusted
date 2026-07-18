@@ -1,32 +1,29 @@
 #!/usr/bin/env python3
-"""Headless Google Tasks ops over the native Tasks REST API (nanoclaw#638).
+"""Headless Google Tasks READS over the native Tasks REST API (nanoclaw#638).
 
-Replaces `composio-tasks.py`. The ops and their stdin contract are
-unchanged; what changed is the wire and the output shape:
+Read-only Tasks ops for trusted-tier ground-truth verification
+(`jbaruch/nanoclaw-admin#456`). This copy carries ONLY the read contract —
+the task-mutation ops (`patch` / `insert` / `delete`) are admin-tier-only
+and are NOT mounted in the trusted tile, so a trusted agent cannot write
+to the owner's tasks through this script.
 
-    list-tasklists -> GET    /users/@me/lists
-    list           -> GET    /lists/{tasklist_id}/tasks
-    get            -> GET    /lists/{tasklist_id}/tasks/{task_id}
-    patch          -> PATCH  /lists/{tasklist_id}/tasks/{task_id}
-    insert         -> POST   /lists/{tasklist_id}/tasks
-    delete         -> DELETE /lists/{tasklist_id}/tasks/{task_id}
+    list-tasklists -> GET /users/@me/lists
+    list           -> GET /lists/{tasklist_id}/tasks
+    get            -> GET /lists/{tasklist_id}/tasks/{task_id}
 
 `tasklist_id` / `task_id` keep their snake_case stdin names. They were
 snake_case because the Composio slug demanded it; they stay snake_case
 because that is this script's own contract and every caller already
 speaks it. Natively they are path segments, not body fields — this script
-lifts them out of stdin and onto the URL. Every remaining key is the
-native Tasks field name (`title`, `status`, `due`, `notes`), so callers'
-stdin JSON carries over unchanged.
+lifts them out of stdin and onto the URL.
 
-Output shape changed — read the resource, not `data`
-----------------------------------------------------
+Output shape — read the resource, not `data`
+--------------------------------------------
 Composio wrapped every response in `{"data": ..., "successful": bool,
 "error": ...}`. That envelope was a Composio invention and dies with it:
 this script prints the raw Tasks resource. `list-tasklists` and `list`
-put their array in top-level `items`; `get` / `patch` / `insert` return
-the task resource itself. `delete` answers 204 with no body, which
-surfaces as `{}`.
+put their array in top-level `items`; `get` returns the task resource
+itself.
 
 The `successful: false` branch dies too. Composio reported an API-level
 failure (task not found, insufficient scope) as HTTP 200 with
@@ -51,10 +48,6 @@ Usage
     echo '{}' | google-tasks.py list-tasklists
     echo '{"tasklist_id": "..."}' | google-tasks.py list
     echo '{"tasklist_id": "...", "task_id": "..."}' | google-tasks.py get
-    echo '{"tasklist_id": "...", "task_id": "...", "title": "...", \
-           "status": "needsAction", "due": "...Z"}' | google-tasks.py patch
-    echo '{"tasklist_id": "...", "title": "...", "status": "needsAction", \
-           "due": "...Z"}' | google-tasks.py insert
 
 Output
 ------
@@ -78,23 +71,14 @@ import urllib.parse
 _SCRIPTS = pathlib.Path(__file__).resolve().parent
 GOOGLE_REST_PATH = _SCRIPTS / "google-rest.py"
 
-# Op -> (HTTP method, required stdin keys). Required keys are unchanged
-# from the Composio path so a malformed call still fails here with an
-# actionable message rather than as an opaque Google 4xx. `patch` keeps
-# requiring title+status even though a native PATCH is partial: relaxing a
-# caller contract is a change #638 does not need to make.
+# Op -> (HTTP method, required stdin keys). Required keys give a malformed
+# call an actionable message here rather than an opaque Google 4xx. Reads
+# only — the trusted tile never mounts the mutation ops (#456).
 OPS = {
     "list-tasklists": ("GET", ()),
     "list": ("GET", ("tasklist_id",)),
     "get": ("GET", ("tasklist_id", "task_id")),
-    "patch": ("PATCH", ("tasklist_id", "task_id", "title", "status")),
-    "insert": ("POST", ("tasklist_id", "title", "status")),
-    "delete": ("DELETE", ("tasklist_id", "task_id")),
 }
-
-# Ops whose non-path stdin keys form a request body rather than a query
-# string. Everything else sends its leftovers as query params.
-_BODY_OPS = {"patch", "insert"}
 
 
 def _load_google_rest():
@@ -129,7 +113,7 @@ def _endpoint(op, args):
     if op == "list-tasklists":
         return "users/@me/lists"
     tasklist = _quote(args.pop("tasklist_id"))
-    if op in ("list", "insert"):
+    if op == "list":
         return f"lists/{tasklist}/tasks"
     return f"lists/{tasklist}/tasks/{_quote(args.pop('task_id'))}"
 
@@ -164,7 +148,7 @@ def main() -> int:
         return 2
 
     path = _endpoint(op, args)
-    payload = {"body": args} if op in _BODY_OPS else {"params": args or None}
+    payload = {"params": args or None}
 
     try:
         resource = google_rest.google_request(

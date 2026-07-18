@@ -12,7 +12,7 @@ Scripts mount at `/home/node/.claude/skills/tessl__google-ops/scripts/`. No Goog
 
 Each script is a black box per `coding-policy: script-as-black-box` — the endpoint, defaults, query encoding, and output shape live in its top-of-file docstring. `jbaruch/nanoclaw-admin` `rules/google-access.md` is the authority for op names and argument conventions; this skill does not restate them. Argument computation (time windows, timezone math, which tasklist) stays with the caller — it is reasoning, not a fixed transform.
 
-**Read scope.** The trusted-supported surface is read-only: calendar `events-list` and tasks `list-tasklists` / `list` / `get`. `google-tasks.py` also carries the task-mutation ops (`patch` / `insert` / `delete`) its admin-tier consumers use — those are not part of this skill's trusted surface; do not invoke them for trusted-tier verification.
+**Read-only.** This skill exposes reads only: calendar `events-list` and tasks `list-tasklists` / `list` / `get`. The task-mutation ops (`patch` / `insert` / `delete`) are admin-tier-only and are not present in this tile's `google-tasks.py` — a trusted agent cannot write to the owner's tasks through this skill.
 
 ## Step 1 — Read calendar events
 

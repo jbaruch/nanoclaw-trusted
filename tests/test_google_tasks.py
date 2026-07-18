@@ -1,14 +1,14 @@
 """Tests for skills/google-ops/scripts/google-tasks.py.
 
-Locks down the native Tasks REST op contract (nanoclaw#638):
+Locks down the native Tasks REST READ contract (nanoclaw#638). This is the
+trusted read-only copy (`jbaruch/nanoclaw-admin#456`) — the mutation ops
+(patch / insert / delete) are admin-tier-only and not present here:
 
-  - each op maps to its fixed method + endpoint (list-tasklists / list /
-    get / patch / insert / delete)
+  - each read op maps to its fixed method + endpoint (list-tasklists /
+    list / get, all GET)
   - tasklist_id / task_id are lifted out of stdin onto the URL path,
-    URL-quoted, and never re-appear in the body or query
-  - patch/insert send their remaining stdin keys as a JSON body;
-    everything else sends them as query params
-  - delete's 204-with-no-body surfaces as {}
+    URL-quoted, and never re-appear in the query
+  - remaining stdin keys go on the query string
   - the raw Tasks resource is printed — no Composio envelope, and no
     `successful: false` in-band failure branch (Google uses HTTP status)
   - per-op required keys are enforced locally with an actionable error
@@ -83,15 +83,6 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self):  # noqa: N802 — BaseHTTPRequestHandler API
-        self._record_and_reply()
-
-    def do_POST(self):  # noqa: N802 — BaseHTTPRequestHandler API
-        self._record_and_reply()
-
-    def do_PATCH(self):  # noqa: N802 — BaseHTTPRequestHandler API
-        self._record_and_reply()
-
-    def do_DELETE(self):  # noqa: N802 — BaseHTTPRequestHandler API
         self._record_and_reply()
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -208,96 +199,10 @@ def test_ids_are_url_quoted_into_the_path(tasks_api, monkeypatch, capsys):
     )
 
 
-def test_patch_sends_a_json_body_with_the_ids_stripped(tasks_api, monkeypatch, capsys):
-    tasks_api.response_body = {"id": "t1", "status": "completed"}
-
-    rc = _run(
-        monkeypatch,
-        "patch",
-        {
-            "tasklist_id": TASKLIST,
-            "task_id": "t1",
-            "title": "Renew passport",
-            "status": "completed",
-            "due": "2026-06-15T00:00:00.000Z",
-        },
-    )
-
-    assert rc == 0
-    seen = tasks_api.requests_seen[0]
-    assert seen["method"] == "PATCH"
-    assert seen["path"] == f"/tasks/v1/lists/{TASKLIST}/tasks/t1"
-    assert seen["query"] == {}
-    assert seen["body"] == {
-        "title": "Renew passport",
-        "status": "completed",
-        "due": "2026-06-15T00:00:00.000Z",
-    }
-
-
-def test_insert_posts_a_json_body_to_the_tasks_collection(tasks_api, monkeypatch, capsys):
-    tasks_api.response_body = {"id": "t9"}
-
-    rc = _run(
-        monkeypatch,
-        "insert",
-        {
-            "tasklist_id": TASKLIST,
-            "title": "08:00 UTC-05:00 — call dealer",
-            "status": "needsAction",
-            "due": "2026-06-15T00:00:00.000Z",
-        },
-    )
-
-    assert rc == 0
-    seen = tasks_api.requests_seen[0]
-    assert seen["method"] == "POST"
-    assert seen["path"] == f"/tasks/v1/lists/{TASKLIST}/tasks"
-    assert seen["query"] == {}
-    assert seen["body"] == {
-        "title": "08:00 UTC-05:00 — call dealer",
-        "status": "needsAction",
-        "due": "2026-06-15T00:00:00.000Z",
-    }
-
-
-def test_delete_204_with_no_body_returns_an_empty_object(tasks_api, monkeypatch, capsys):
-    tasks_api.response_status = 204
-
-    rc = _run(monkeypatch, "delete", {"tasklist_id": TASKLIST, "task_id": "t1"})
-
-    assert rc == 0
-    seen = tasks_api.requests_seen[0]
-    assert seen["method"] == "DELETE"
-    assert seen["path"] == f"/tasks/v1/lists/{TASKLIST}/tasks/t1"
-    # An empty body is success, not a JSONDecodeError for callers to guard.
-    assert json.loads(capsys.readouterr().out.strip()) == {}
-
-
-def test_patch_missing_required_status_exits_2_before_network(tasks_api, monkeypatch, capsys):
-    rc = _run(
-        monkeypatch,
-        "patch",
-        {"tasklist_id": TASKLIST, "task_id": "t1", "title": "x"},  # no status
-    )
-
-    assert rc == 2
-    assert "missing/empty: status" in capsys.readouterr().err
-    assert tasks_api.requests_seen == []
-
-
 def test_list_missing_tasklist_id_exits_2(tasks_api, monkeypatch, capsys):
     rc = _run(monkeypatch, "list", {})
     assert rc == 2
     assert "missing/empty: tasklist_id" in capsys.readouterr().err
-    assert tasks_api.requests_seen == []
-
-
-def test_insert_missing_title_and_status_exits_2(tasks_api, monkeypatch, capsys):
-    rc = _run(monkeypatch, "insert", {"tasklist_id": TASKLIST})
-    assert rc == 2
-    err = capsys.readouterr().err
-    assert "missing/empty: title, status" in err
     assert tasks_api.requests_seen == []
 
 
