@@ -6,7 +6,8 @@
   "skills": [
     "skills/status",
     "skills/system-status",
-    "skills/trusted-memory"
+    "skills/trusted-memory",
+    "skills/google-ops"
   ],
   "rules": [
     "rules/daily-discoveries-rule.md",

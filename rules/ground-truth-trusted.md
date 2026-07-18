@@ -16,14 +16,15 @@ Extends the core ground-truth rule with verification methods available to truste
 | Email content | The sanitizing Gmail-fetch skills — see `google-access.md` "Exception — sanitizing Gmail-fetch skills" |
 | GitHub PR/issue | `gh` — see the `github-data-via-gh` rule |
 
-Op scripts mount at `/home/node/.claude/skills/tessl__heartbeat/scripts/<script>.py`. `jbaruch/nanoclaw-admin` `rules/google-access.md` is the authority for op names, arg conventions, and the Gmail-fetch exception — this rule does not restate them.
+Calendar/Tasks op scripts mount at `/home/node/.claude/skills/tessl__google-ops/scripts/<script>.py` (the `google-ops` skill in this tile). Invoke them via `Skill(skill: "google-ops")` or directly at that path. Gmail verification is the separate sanitizing Gmail-fetch path — see the Email row. `jbaruch/nanoclaw-admin` `rules/google-access.md` is the authority for op names, arg conventions, and the Gmail-fetch exception — this rule does not restate them.
 
-## Google needs the heartbeat mount
+## Google via the gateway
 
 - No Google credential exists in the container; the gateway injects and refreshes the `Authorization: Bearer` on the wire.
 - Never read a Google key from the environment or send an `Authorization` header yourself. A credential in the container is a bug, not a fallback.
-- The op scripts ship in `nanoclaw-admin` — baseline on **main** only (`selectTiles`, `jbaruch/nanoclaw` `src/container-runner.ts`). A trusted non-main container reaches them only when `tessl__heartbeat` is co-loaded via its group's `containerConfig`.
-- Scripts absent, or a call refused `access_restricted`: this container has no Google verification path. Report the claim as unverified — do not assert it, do not reach for another route.
+- The Calendar/Tasks op scripts ship in this tile's `google-ops` skill — baseline on **main and trusted** (`selectTiles`, `jbaruch/nanoclaw` `src/container-runner.ts`), so a trusted container has them natively with no `containerConfig` co-load (`jbaruch/nanoclaw-admin#456`). The trusted surface is read-only: `google-calendar.py events-list` and `google-tasks.py list-tasklists`/`list`/`get`.
+- Email content is the exception: the sanitizing Gmail-fetch skills ship only in `nanoclaw-admin` (baseline on **main** only). A trusted non-main container has no email-verification path — report an email claim as unverified there rather than reaching for a raw fetch.
+- A call refused `access_restricted` (untrusted tier, gated by design): this container has no Google verification path. Report the claim as unverified — do not assert it, do not reach for another route.
 
 ## GitHub: `gh`-first, no non-existence claims on unauth 404
 
