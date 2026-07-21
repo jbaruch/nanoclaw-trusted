@@ -1,0 +1,29 @@
+name: Review & Publish Tile
+
+# Thin caller for the canonical fleet publish pipeline
+# (jbaruch/coding-policy#206). All steps live in the reusable workflow;
+# this file carries only the triggers and this repo's inputs. The display
+# name is unchanged so tooling that watches this run by name keeps working.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# The reusable workflow's own permissions are capped by what the caller
+# grants — declare the publish pipeline's needs explicitly.
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
+
+jobs:
+  publish:
+    uses: jbaruch/coding-policy/.github/workflows/publish-plugin.yml@b7eb9d08b78f72810891aa5fe7bf3e4fa6eb55f6
+    # Forward only the token the reusable workflow declares (not `inherit`).
+    secrets:
+      TESSL_TOKEN: ${{ secrets.TESSL_TOKEN }}
+    with:
+      stamp-changelog: true
+      skill-review-credit-outage: skip
