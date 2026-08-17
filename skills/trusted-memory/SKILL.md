@@ -11,7 +11,7 @@ This skill applies to trusted and main containers only. `/workspace/trusted/` is
 
 Store layout, typed-file frontmatter and naming, the `MEMORY.md` index shape, size limits, and the nightly archival pipeline are reference material, not steps:
 
-```
+```text
 skills/trusted-memory/references/memory-store.md
 ```
 
@@ -19,9 +19,9 @@ On-disk state shapes — `session-state.json` and the canonical `## Addresses` b
 
 ## Step 1 — Bootstrap the Session
 
-> The agent-runner now auto-injects MEMORY.md, RUNBOOK.md, and the most-recent daily log via the `session-start-auto-context` hook (jbaruch/nanoclaw#141), so those three files are already in context when this skill runs. This skill's bootstrap still adds value because it reads the **broader** set the hook does NOT cover — group-shared `trusted/` memory, weekly logs, and `highlights.md` — plus does the per-session sentinel + state-stamping.
+The agent-runner's `session-start-auto-context` hook already injects MEMORY.md, RUNBOOK.md, and the most-recent daily log. Read them anyway when a step below names them; this step also covers what the hook does not — group-shared `trusted/` memory, weekly logs, `highlights.md` — plus the per-session sentinel and state stamping.
 
-First, check if bootstrap is needed. The sentinel is keyed to the current session ID so a new session within the same container still triggers bootstrap:
+First, check if bootstrap is needed. The sentinel is keyed to the current session ID, so a new session in the same container still triggers bootstrap:
 
 ```
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/needs-bootstrap.py
@@ -45,7 +45,9 @@ If bootstrap IS needed → run these reads in order:
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py
 ```
 
-Reads `session_id` from `/workspace/store/messages.db`, stamps `sessions.<$NANOCLAW_SESSION_NAME>` and top-level `session_id` in `/workspace/group/session-state.json` (with `schema_version: 1` per `state-schema.md`), and writes the bootstrap sentinel at `/tmp/session_bootstrapped` with `$CLAUDE_SESSION_ID`. Both writes are individually atomic (tempfile + fsync + chmod-to-preserve-mode + os.replace), but the two-file sequence is NOT transactional: if the sentinel write fails after the state write succeeded, the state file is already updated and the next run will still re-bootstrap (because the sentinel is missing/stale). Read 7 and the old "write the sentinel" read are both handled by this single invocation. Emits a single-line JSON status to stdout (`{"session_id": ..., "session_name": ..., "schema_version": 1, "wrote_state": true, "wrote_sentinel": <bool>}`); `wrote_sentinel` is `false` when `$CLAUDE_SESSION_ID` is missing/empty (deliberate skip per the sentinel-empty guard).
+One invocation writes both the session-state entry and the bootstrap sentinel — inputs, environment variables, and write behaviour are in the script's docstring; the on-disk shapes are in `state-schema.md`. Emits single-line JSON `{"session_id", "session_name", "schema_version", "wrote_state", "wrote_sentinel"}`.
+
+Flow-relevant: a run that writes the state but not the sentinel re-bootstraps next session. That is safe — the reads above are idempotent — so treat a `wrote_sentinel: false` as noted, not as a failure to retry.
 
 Total context budget for memory: ~3000 tokens. Summarize large files before loading.
 
@@ -80,9 +82,9 @@ echo "- HH:MM UTC [chat-name] — [what happened / what was learned]" \
 
 Where `[chat-name]` is derived from the group folder name (e.g. `main`, `swarm`, `dedy-bukhtyat`). Multiple bullets in one call: pass repeated `--line "..."` flags or pipe a newline-delimited block on stdin.
 
-The helper resolves today's UTC date, holds `fcntl.LOCK_EX` on a sibling `<file>.lock` for the entire read-modify-write cycle, creates the daily file with a `# Daily Summary — YYYY-MM-DD` header on first call (the canonical header the nightly archive pipeline recognises), and atomic-writes via `tempfile + fsync + os.replace`. Concurrent writers (default container + maintenance container + sub-skills) serialise on the lock so no caller's lines are clobbered. Override the daily-dir for non-canonical mount layouts via `--group-daily` / `--trusted-daily` flags or `NANOCLAW_GROUP_DAILY` / `NANOCLAW_TRUSTED_DAILY` env vars (flag wins over env). Stdout: `{"path", "appended_lines", "dropped_duplicates", "final_line_count", "created", "out_of_order"}`. Out-of-order detection emits a stderr warning when the new line's timestamp precedes the file's last entry but still appends at end-of-file (cross-group writers and clock-skew retries can legitimately arrive late; silent reorder would mask actual bugs).
+The helper resolves the target file, serialises concurrent writers, and creates the daily file on first call — date resolution, locking, dedup predicate, and write mechanics are in `skills/trusted-memory/scripts/append-to-daily-log.py`. Override the daily-dir for non-canonical mount layouts with `--group-daily` / `--trusted-daily`, or the matching `NANOCLAW_GROUP_DAILY` / `NANOCLAW_TRUSTED_DAILY` env vars.
 
-Per `jbaruch/nanoclaw#365`: candidate lines whose whitespace-normalized form already appears in the file (or duplicates an earlier line in the same batch) are skipped at write time and counted in `dropped_duplicates`. All-duplicates is a valid no-op — the file's mtime and inode stay untouched. Existing on-disk lines are never rewritten; dedup only affects new appends.
+Stdout: `{"path", "appended_lines", "dropped_duplicates", "final_line_count", "created", "out_of_order"}`. Duplicate lines are dropped rather than appended, so an all-duplicates call is a valid no-op — read `appended_lines`, not exit status, to know whether anything landed. A stderr out-of-order warning accompanies `out_of_order: true`; the lines still land, so it is a note, not a failure.
 
 Skip for pure heartbeats with nothing to report or trivial acknowledgements. Finish here.
 
@@ -106,6 +108,6 @@ Run the owner-side migration of `user_profile.md`'s canonical `## Addresses` blo
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/migrate-addresses-block.py
 ```
 
-Idempotent — a block already at the current version is left byte-identical, so running it every session is free. Emits single-line JSON `{"migrated": <bool>, "from": <int|null>, "to": <int>, "path": "..."}`; exit 1 with an actionable stderr diagnostic when the profile is missing/unreadable, carries no block, or carries a stamp the script refuses to rewrite. The version constant, what gets restamped, and what is deliberately NOT added live in the script and `state-schema.md` — do not restate or re-derive them here, and never hand-edit the block's stamp.
+Idempotent: a block already at the current version is left byte-identical. Emits single-line JSON `{"migrated": <bool>, "from": <int|null>, "to": <int>, "path": "..."}`; exit 1 with an actionable stderr diagnostic when the profile is missing/unreadable, carries no block, or carries a stamp the script refuses to rewrite. The version constant, what gets restamped, and what is deliberately NOT added live in the script and `state-schema.md` — do not restate or re-derive them here, and never hand-edit the block's stamp.
 
 On a non-zero exit, report the diagnostic verbatim and stop; the block is unchanged on disk. Finish here.
