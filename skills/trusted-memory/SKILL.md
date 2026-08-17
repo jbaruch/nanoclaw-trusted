@@ -47,7 +47,7 @@ Content here...
 
 ### Types
 
-**user** — Owner profile, preferences, knowledge level. `user_profile.md` is a canonical, **special-case** file with a fixed name (it does NOT follow the general `user_<slug>.md` / `{type}_{slug}.md` pattern below). It additionally carries the canonical machine-readable `## Addresses` block (`current_home` / `home_airport` / `home_metro` / `new_home_wip`) read by the travel tile — schema and reader contract in `state-schema.md`.
+**user** — Owner profile, preferences, knowledge level. `user_profile.md` is a canonical, **special-case** file with a fixed name (it does NOT follow the general `user_<slug>.md` / `{type}_{slug}.md` pattern below). It additionally carries the canonical machine-readable `## Addresses` block (`current_home` / `home_airport` / `home_metro` / `new_home_wip`) read by the travel tile — schema and reader contract in `state-schema.md`. This skill owns that block: when editing `user_profile.md`, migrate a block stamped below the current `schema_version` per the owner-side migration in `state-schema.md`, and preserve the `- <key>: <value>` line shape the travel-tile reader parses.
 
 **feedback** — Behavioral corrections. Structure as: rule + why + how to apply. Example:
 ```markdown

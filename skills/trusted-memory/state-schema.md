@@ -83,16 +83,22 @@ The block **separates** the address values that the surrounding prose conflates 
 
 ### Schema versioning
 
-`schema_version: 2` is the current canonical shape (`current_home` + `home_airport` + `home_metro` + `new_home_wip`). Only the owner skill (`tessl__trusted-memory`) bumps it, and only the owner migrates the block — never a reader. Writer and reader ship through separate pipelines (writer here, reader in `jbaruch/nanoclaw-travel`). Coordinate bumps per `jbaruch/coding-policy: stateful-artifacts`:
+`schema_version: 2` is the current canonical shape (`current_home` + `home_airport` + `home_metro` + `new_home_wip`). Only the owner skill (`tessl__trusted-memory`) bumps it, and only the owner migrates the block — never a reader. Writer and reader ship through separate pipelines (writer here, reader in `jbaruch/nanoclaw-travel`), so bumps are coordinated per `jbaruch/coding-policy: stateful-artifacts`.
 
-- **Additive (backward-compatible) bumps** — a new optional key — need no reader change. Bump the version, document the new key here.
-- **Breaking bumps** — renaming/removing `current_home` or changing its line shape — deploy the dual-accept reader → change the writer → drop the old shape.
+Every reader gates on `schema_version` and treats an unaccepted version as "no usable prior state" — `jbaruch/nanoclaw-travel@0.2.116` accepts `{1, 2}` in `skills/travel-core/addresses.py`. What that no-prior-state path does is the consumer's own call: the drive-origin reader fails closed rather than guess an origin, the booking check reads no home metro and so checks every trip.
 
-Every reader gates on `schema_version` and treats an unaccepted version as "no usable prior state" — `jbaruch/nanoclaw-travel@0.2.116` accepts `{1, 2}` in `skills/travel-core/addresses.py`. What that no-prior-state path does is the consumer's own call: the drive-origin reader fails closed rather than guess an origin, the booking check reads no home metro and so checks every trip. **Deploy the reader accepting a new version before stamping a block with it** — a block stamped ahead of its readers reads as unusable everywhere.
+So **every** bump, additive included, follows one order: deploy the dual-accept reader → stamp the block → drop the superseded version from the readers' accepted set once no block can still carry it. A block stamped ahead of its readers reads as unusable everywhere, whatever the new key is.
+
+- **Additive (backward-compatible) bumps** — a new optional key. The dual-accept reader is cheap here: it reads an old block via the key's absent-value default, so one reader parses both shapes for the whole window.
+- **Breaking bumps** — renaming/removing `current_home` or changing its line shape. Same order, and the reader has to parse both shapes explicitly for the window.
 
 ### v1 → v2
 
-Additive: the block gains the optional `home_metro` key. `jbaruch/nanoclaw-travel#271` — the travel-bookings brief nagged about missing bookings for local placeholder trips (a TripIt trip filed to block time for a Nashville event has no flight and no hotel to book). The destination now rides in `travel-db.json`, and `home_metro` is what it is compared against. An absent key means no trip is treated as local, which is the pre-v2 behaviour, so the reader was already dual-accept when this landed.
+Additive: the block gains the optional `home_metro` key. `jbaruch/nanoclaw-travel#271` — the travel-bookings brief nagged about missing bookings for local placeholder trips (a TripIt trip filed to block time for a Nashville event has no flight and no hotel to book). The destination now rides in `travel-db.json`, and `home_metro` is what it is compared against.
+
+`home_metro` has **no default value** — it is absent until the operator names a metro, and absent means no trip is treated as local, which is the pre-v2 behaviour. That is what makes the travel-side reader dual-accept without a code change: it reads a v1 block as a v2 block whose `home_metro` is unset.
+
+**Owner-side migration (owner only, never a reader).** The `## Addresses` block is agent-maintained prose, not script-written, so the owner skill performs the migration when it next edits `user_profile.md`: on finding a block stamped below `2` — or carrying no `schema_version` line at all, the legacy pre-versioned shape — rewrite the block with `- schema_version: 2`, leaving every existing key's value untouched and adding no `home_metro` line (it has no default; the operator supplies one or the key stays absent). The `<!-- canonical … schema vN … -->` comment moves with the stamp. Migrate only after a reader accepting v2 is deployed, per the order above; `jbaruch/nanoclaw-travel@0.2.116` satisfies that. A reader that finds a v1 block never rewrites it — it reads it as v1 and waits for the owner.
 
 ### Writer / reader contract
 
