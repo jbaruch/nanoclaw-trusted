@@ -5,92 +5,23 @@ description: Session bootstrap and rolling memory updates for trusted containers
 
 # Trusted Memory
 
-This rule applies to trusted and main containers only. `/workspace/trusted/` is mounted here. Untrusted containers do not have this mount.
+This skill is an action router — pick the step that matches the user's intent and execute only that step. Do not run other steps; do not parallelize. Step 1 and Step 3 each chain to Step 4 where they say so.
 
-## Directory Structure
+This skill applies to trusted and main containers only. `/workspace/trusted/` is mounted there; untrusted containers do not have the mount.
 
-```
-/workspace/trusted/                    # Shared across all trusted containers
-  MEMORY.md                            # Pure index — one line per entry, max 200 lines
-  RUNBOOK.md                           # Operational workflows and tool knowledge
-  key-people.md                        # Known contacts with Telegram usernames
-  highlights.md                        # Major long-term events
-  trusted_senders.md                   # Trusted sender identifiers
-  credentials_scope.md                 # Available credentials scope
-  user_*.md                            # Owner profile, preferences (type: user)
-  feedback_*.md                        # Behavioral corrections (type: feedback)
-  project_*.md                         # Ongoing work status (type: project)
-  reference_*.md                       # Pointers to external systems (type: reference)
-  memory/
-    daily/YYYY-MM-DD.md                # Cross-group shared entries with [source] tags
-    weekly/YYYY-WNN.md                 # Weekly aggregates
-    daily_discoveries.md               # Operational learnings (see daily-discoveries-rule)
+Store layout, typed-file frontmatter and naming, the `MEMORY.md` index shape, size limits, and the nightly archival pipeline are reference material, not steps:
 
-/workspace/group/memory/               # Group-local, not shared
-  daily/YYYY-MM-DD.md                  # Full detail for this group only
-  weekly/YYYY-WNN.md                   # Weekly summaries for this group
+```text
+skills/trusted-memory/references/memory-store.md
 ```
 
-## Typed Memory Files
+On-disk state shapes — `session-state.json` and the canonical `## Addresses` block — are in `skills/trusted-memory/state-schema.md`.
 
-Memory files in `/workspace/trusted/` use YAML frontmatter:
+## Step 1 — Bootstrap the Session
 
-```markdown
----
-name: descriptive-slug
-description: One-line summary — used for relevance matching at bootstrap
-type: user|feedback|project|reference
----
+The agent-runner's `session-start-auto-context` hook already injects MEMORY.md, RUNBOOK.md, and the most-recent daily log. Read them anyway when a step below names them; this step also covers what the hook does not — group-shared `trusted/` memory, weekly logs, `highlights.md` — plus the per-session sentinel and state stamping.
 
-Content here...
-```
-
-### Types
-
-**user** — Owner profile, preferences, knowledge level. `user_profile.md` is a canonical, **special-case** file with a fixed name (it does NOT follow the general `user_<slug>.md` / `{type}_{slug}.md` pattern below). It additionally carries the canonical machine-readable `## Addresses` block (`current_home` / `home_airport` / `new_home_wip`) read by the travel tile — schema and reader contract in `state-schema.md`.
-
-**feedback** — Behavioral corrections. Structure as: rule + why + how to apply. Example:
-```markdown
----
-name: no-trailing-summaries
-description: Don't summarize at end of responses — user reads the diff
-type: feedback
----
-**Rule:** Skip recap at end of responses. **Why:** User finds it redundant. **How:** State only what's actionable or surprising after completing work.
-```
-
-**project** — Ongoing work with absolute dates. Flag time-sensitive constraints. Example:
-```markdown
----
-name: deploy-freeze
-description: Merge freeze until 2026-04-10 for mobile release cut
-type: project
----
-Merge freeze begins 2026-04-10 for mobile release. Flag any non-critical PR work after that date.
-```
-
-**reference** — Pointers to external systems.
-
-### File naming
-
-`{type}_{slug}.md` — lowercase, hyphens: `feedback_no-summaries.md`, `user_travel-prefs.md`
-
-### MEMORY.md is a pure index
-
-One line per entry, under 150 characters:
-```
-- [Travel preferences](user_travel-prefs.md) — aisle seat, no red-eye, direct flights
-- [No summaries](feedback_no-summaries.md) — don't recap at end of responses
-- [Deploy freeze](project_deploy-freeze.md) — merge freeze until 2026-04-10
-```
-
-Max 200 lines. When approaching the limit, consolidate or remove stale entries.
-
-## Session Bootstrap
-
-> The agent-runner now auto-injects MEMORY.md, RUNBOOK.md, and the most-recent daily log via the `session-start-auto-context` hook (jbaruch/nanoclaw#141), so those three files are already in context when this skill runs. This skill's bootstrap still adds value because it reads the **broader** set the hook does NOT cover — group-shared `trusted/` memory, weekly logs, and `highlights.md` — plus does the per-session sentinel + state-stamping.
-
-First, check if bootstrap is needed. The sentinel is keyed to the current session ID so a new session within the same container still triggers bootstrap:
+First, check if bootstrap is needed. The sentinel is keyed to the current session ID, so a new session in the same container still triggers bootstrap:
 
 ```
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/needs-bootstrap.py
@@ -98,9 +29,9 @@ python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/needs-bootstrap.
 
 Exit 0 = bootstrap IS needed, exit 1 = skip bootstrap (sentinel matches current session). From Python: `subprocess.run([...]).returncode == 0`. From Bash: branch on `$?`. Also emits a single-line JSON status to stdout (`{"needs_bootstrap": <bool>, "current": ..., "stored": ..., "reason": ...}`) for callers that want to log the decision.
 
-If bootstrap is NOT needed → stop here, silent.
+If bootstrap is NOT needed → finish here, silent.
 
-If bootstrap IS needed → run all steps below in order:
+If bootstrap IS needed → run these reads in order:
 
 1. Read `/workspace/trusted/MEMORY.md` — lightweight index. Scan entries and load the 2-3 most relevant typed files based on current context.
 2. Read `/workspace/trusted/RUNBOOK.md` — operational workflows and tool knowledge.
@@ -114,18 +45,22 @@ If bootstrap IS needed → run all steps below in order:
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py
 ```
 
-Reads `session_id` from `/workspace/store/messages.db`, stamps `sessions.<$NANOCLAW_SESSION_NAME>` and top-level `session_id` in `/workspace/group/session-state.json` (with `schema_version: 1` per `state-schema.md`), and writes the bootstrap sentinel at `/tmp/session_bootstrapped` with `$CLAUDE_SESSION_ID`. Both writes are individually atomic (tempfile + fsync + chmod-to-preserve-mode + os.replace), but the two-file sequence is NOT transactional: if the sentinel write fails after the state write succeeded, the state file is already updated and the next run will still re-bootstrap (because the sentinel is missing/stale). Steps 7 and the old Step 8 "write the sentinel" are both handled by this single invocation. Emits a single-line JSON status to stdout (`{"session_id": ..., "session_name": ..., "schema_version": 1, "wrote_state": true, "wrote_sentinel": <bool>}`); `wrote_sentinel` is `false` when `$CLAUDE_SESSION_ID` is missing/empty (deliberate skip per the sentinel-empty guard).
+One invocation writes both the session-state entry and the bootstrap sentinel — inputs, environment variables, and write behaviour are in the script's docstring; the on-disk shapes are in `state-schema.md`. Emits single-line JSON `{"session_id", "session_name", "schema_version", "wrote_state", "wrote_sentinel"}`.
+
+Flow-relevant: a run that writes the state but not the sentinel re-bootstraps next session. That is safe — the reads above are idempotent — so treat a `wrote_sentinel: false` as noted, not as a failure to retry.
 
 Total context budget for memory: ~3000 tokens. Summarize large files before loading.
 
-### Bootstrap Error Handling
+**Error handling.**
 
 - **Missing files**: Skip silently and continue. Do not treat absence as an error.
-- **Missing `session-state.json`**: Treat as a fresh session — proceed through all steps and create the file at step 7.
+- **Missing `session-state.json`**: Treat as a fresh session — proceed through all the reads; read 7 creates the file.
 - **Corrupt or unreadable `session-state.json`**: Treat as missing — overwrite with the current session ID after completing bootstrap.
-- **Missing or empty daily/weekly directories**: Skip those steps and proceed. Note in the first rolling memory update that this is a new memory store.
+- **Missing or empty daily/weekly directories**: Skip those reads and proceed. Note in the first rolling memory update that this is a new memory store.
 
-## Rolling Memory Updates
+Bootstrap reads the owner profile, so proceed to Step 4 — the owner migrates its `## Addresses` block on read, never on some later edit. Finish after Step 4.
+
+## Step 2 — Record a Rolling Memory Update
 
 After any non-trivial interaction (decision made, action taken, something new learned about the owner's preferences):
 
@@ -147,13 +82,13 @@ echo "- HH:MM UTC [chat-name] — [what happened / what was learned]" \
 
 Where `[chat-name]` is derived from the group folder name (e.g. `main`, `swarm`, `dedy-bukhtyat`). Multiple bullets in one call: pass repeated `--line "..."` flags or pipe a newline-delimited block on stdin.
 
-The helper resolves today's UTC date, holds `fcntl.LOCK_EX` on a sibling `<file>.lock` for the entire read-modify-write cycle, creates the daily file with a `# Daily Summary — YYYY-MM-DD` header on first call (the canonical header the nightly archive pipeline recognises), and atomic-writes via `tempfile + fsync + os.replace`. Concurrent writers (default container + maintenance container + sub-skills) serialise on the lock so no caller's lines are clobbered. Override the daily-dir for non-canonical mount layouts via `--group-daily` / `--trusted-daily` flags or `NANOCLAW_GROUP_DAILY` / `NANOCLAW_TRUSTED_DAILY` env vars (flag wins over env). Stdout: `{"path", "appended_lines", "dropped_duplicates", "final_line_count", "created", "out_of_order"}`. Out-of-order detection emits a stderr warning when the new line's timestamp precedes the file's last entry but still appends at end-of-file (cross-group writers and clock-skew retries can legitimately arrive late; silent reorder would mask actual bugs).
+The helper resolves the target file, serialises concurrent writers, and creates the daily file on first call — date resolution, locking, dedup predicate, and write mechanics are in `skills/trusted-memory/scripts/append-to-daily-log.py`. Override the daily-dir for non-canonical mount layouts with `--group-daily` / `--trusted-daily`, or the matching `NANOCLAW_GROUP_DAILY` / `NANOCLAW_TRUSTED_DAILY` env vars.
 
-Per `jbaruch/nanoclaw#365`: candidate lines whose whitespace-normalized form already appears in the file (or duplicates an earlier line in the same batch) are skipped at write time and counted in `dropped_duplicates`. All-duplicates is a valid no-op — the file's mtime and inode stay untouched. Existing on-disk lines are never rewritten; dedup only affects new appends.
+Stdout: `{"path", "appended_lines", "dropped_duplicates", "final_line_count", "created", "out_of_order"}`. Duplicate lines are dropped rather than appended, so an all-duplicates call is a valid no-op — read `appended_lines`, not exit status, to know whether anything landed. A stderr out-of-order warning accompanies `out_of_order: true`; the lines still land, so it is a note, not a failure.
 
-Skip for pure heartbeats with nothing to report or trivial acknowledgements.
+Skip for pure heartbeats with nothing to report or trivial acknowledgements. Finish here.
 
-### Saving permanent facts
+## Step 3 — Save a Permanent Fact
 
 When learning something that should persist (owner preference, architecture decision, new contact, external system reference):
 
@@ -163,12 +98,16 @@ When learning something that should persist (owner preference, architecture deci
 
 Do NOT wait for nightly archival to create typed files — save immediately.
 
-## Archival
+Editing `user_profile.md` rewrites the file carrying the canonical `## Addresses` block, so proceed to Step 4 and finish there. Preserve the block's `- <key>: <value>` line shape while editing — the travel tile parses it. Any other typed file finishes here.
 
-Nightly housekeeping archives daily logs → weekly summaries, and weekly summaries → `highlights.md` on week boundaries. Source attribution (`[chat-name]`) is preserved throughout for both group-local and shared trusted logs. Weekly summaries group related entries thematically; on week boundaries the weekly summary is condensed into a short paragraph appended to `highlights.md`. Archival is triggered by the nightly housekeeping process, not by Claude during a normal session.
+## Step 4 — Migrate the Addresses Block
 
-## Size Limits
+Run the owner-side migration of `user_profile.md`'s canonical `## Addresses` block. Reached from Step 1 (the owner migrates on read, per `jbaruch/coding-policy: stateful-artifacts`) and from Step 3 after writing `user_profile.md`.
 
-- **MEMORY.md**: 200 lines max. Each entry one line, under 150 characters. Consolidate or remove stale entries before adding new ones.
-- **Daily logs**: 50 entries max per day. Scan for duplicates before appending if near the limit.
-- **Weekly summaries**: 30 entries max. Compress related entries thematically.
+```
+python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/migrate-addresses-block.py
+```
+
+Idempotent: a block already at the current version is left byte-identical. Emits single-line JSON `{"migrated": <bool>, "from": <int|null>, "to": <int>, "path": "..."}`; exit 1 with an actionable stderr diagnostic when the profile is missing/unreadable, carries no block, or carries a stamp the script refuses to rewrite. The version constant, what gets restamped, and what is deliberately NOT added live in the script and `state-schema.md` — do not restate or re-derive them here, and never hand-edit the block's stamp.
+
+On a non-zero exit, report the diagnostic verbatim and stop; the block is unchanged on disk. Finish here.

@@ -63,30 +63,46 @@ Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-adm
 
 ```
 ## Addresses
-<!-- canonical, machine-read by travel tile; schema v1 — see trusted-memory state-schema.md -->
-- schema_version: 1
+<!-- canonical, machine-read by travel tile; schema v2 — see trusted-memory state-schema.md -->
+- schema_version: 2
 - current_home: <current home street address>
 - home_airport: <IATA code>
+- home_metro: <City, Region>
 - new_home_wip: <new-build street address>
 ```
 
-| Key | Meaning | Mutability |
-|---|---|---|
-| `schema_version` | Block shape version (currently `1`). Bump on any shape change per `jbaruch/coding-policy: stateful-artifacts`. | Owner-only. |
-| `current_home` | The operator's current residence — the origin every home-anchored drive leg routes from. | Owner-updated. Switch to the `new_home_wip` value once that home is occupied. |
-| `home_airport` | Home IATA code (e.g. `BNA`). | Owner-updated. |
-| `new_home_wip` | New-build street address, not yet occupied. | Owner-updated. **Not** auto-promoted to `current_home` — that is an explicit later edit. |
+| Key | Required | Meaning | Mutability |
+|---|---|---|---|
+| `schema_version` | Yes | Block shape version (currently `2`). Bump on any shape change per `jbaruch/coding-policy: stateful-artifacts`. | Owner-only. |
+| `current_home` | Yes | The operator's current residence — the origin every home-anchored drive leg routes from. | Owner-updated. Switch to the `new_home_wip` value once that home is occupied. |
+| `home_airport` | Yes | Home IATA code (e.g. `BNA`). | Owner-updated. |
+| `home_metro` | No | The metro the operator lives in, spelled as TripIt labels a trip destination (`<City>, <Region>`, e.g. `Nashville, TN`). Repeat the line to name more than one label — the value carries its own comma, so a separator inside one value would be ambiguous. | Owner-updated. |
+| `new_home_wip` | No | New-build street address, not yet occupied. Absent once that home is occupied and its value has moved to `current_home`. | Owner-updated. **Not** auto-promoted to `current_home` — that is an explicit later edit. |
 
-The block **separates** the three address values that the surrounding prose conflates ("home base / new build"). Keep the prose for the agent; the block exists so script reads get an unambiguous single value per key.
+A migration never stamps a block that is missing a required key: publishing a record that claims the current shape while missing it sends readers down their block-is-readable path to find nothing. The check and its diagnostic are in `skills/trusted-memory/scripts/migrate-addresses-block.py`.
+
+The block **separates** the address values that the surrounding prose conflates ("home base / new build"). Keep the prose for the agent; the block exists so script reads get an unambiguous single value per key.
 
 ### Schema versioning
 
-`schema_version: 1` is the current canonical shape (`current_home` + `home_airport` + `new_home_wip`). Only the owner skill (`tessl__trusted-memory`) bumps it, and only the owner migrates the block — never a reader. Writer and reader ship through separate pipelines (writer here, reader in `jbaruch/nanoclaw-travel`). Coordinate bumps per `jbaruch/coding-policy: stateful-artifacts`:
+`schema_version: 2` is the current canonical shape (`current_home` + `home_airport` + `home_metro` + `new_home_wip`). Only the owner skill (`tessl__trusted-memory`) bumps it, and only the owner migrates the block — never a reader. Writer and reader ship through separate pipelines (writer here, reader in `jbaruch/nanoclaw-travel`), so bumps are coordinated per `jbaruch/coding-policy: stateful-artifacts`.
 
-- **Additive (backward-compatible) bumps** — a new optional key — need no reader change. Bump the version, document the new key here.
-- **Breaking bumps** — renaming/removing `current_home` or changing its line shape — deploy the dual-accept reader → change the writer → drop the old shape.
+Every reader gates on `schema_version` and treats an unaccepted version as "no usable prior state" — `jbaruch/nanoclaw-travel@0.2.116` accepts `{1, 2}` in `skills/travel-core/addresses.py`. What that no-prior-state path does is the consumer's own call: the drive-origin reader fails closed rather than guess an origin, the booking check reads no home metro and so checks every trip.
 
-A consumer that does not inspect `schema_version` (the current drive-planner reader does not) treats any version's `- current_home:` line as readable. A future consumer that gates on version MUST treat an unaccepted version as "no usable prior state" and fail closed, never guess an origin.
+So **every** bump, additive included, follows one order: deploy the dual-accept reader → stamp the block → drop the superseded version from the readers' accepted set once no block can still carry it. A block stamped ahead of its readers reads as unusable everywhere, whatever the new key is.
+
+- **Additive (backward-compatible) bumps** — a new optional key. The dual-accept reader is cheap here: it reads an old block via the key's absent-value default, so one reader parses both shapes for the whole window.
+- **Breaking bumps** — renaming/removing `current_home` or changing its line shape. Same order, and the reader has to parse both shapes explicitly for the window.
+
+### v1 → v2
+
+Additive: the block gains the optional `home_metro` key. `jbaruch/nanoclaw-travel#271` — the travel-bookings brief nagged about missing bookings for local placeholder trips (a TripIt trip filed to block time for a Nashville event has no flight and no hotel to book). The destination now rides in `travel-db.json`, and `home_metro` is what it is compared against.
+
+`home_metro` has **no default value** — it is absent until the operator names a metro, and absent means no trip is treated as local, which is the pre-v2 behaviour. That is what makes the travel-side reader dual-accept without a code change: it reads a v1 block as a v2 block whose `home_metro` is unset.
+
+**Owner-side migration (owner only, never a reader).** `skills/trusted-memory/scripts/migrate-addresses-block.py` performs it — see its top-of-file docstring for what it reads, writes, emits, and refuses. `SKILL.md` Step 4 invokes it, and Step 1 (Bootstrap) reaches Step 4 every session, so the block migrates when the owner READS it rather than whenever someone next happens to edit the profile. Step 3 reaches it again after any write to `user_profile.md`.
+
+Two contracts this schema owns rather than the script: no migration adds a `home_metro` line, because the key has no default; and migrating to a version is legal only once a reader accepting it is deployed, per the order above — `jbaruch/nanoclaw-travel@0.2.116` satisfies that for v2. A reader that finds a v1 block never rewrites it: it reads it as v1 and waits for the owner.
 
 ### Writer / reader contract
 
@@ -94,6 +110,7 @@ A consumer that does not inspect `schema_version` (the current drive-planner rea
 |---|---|---|---|
 | `current_home` | `tessl__trusted-memory` (owner) | `jbaruch/nanoclaw-travel: drive-planner` (read-only) | Origin for home-anchored drive legs. |
 | `home_airport` | `tessl__trusted-memory` (owner) | travel-tile consumers (read-only) | IATA code. |
+| `home_metro` | `tessl__trusted-memory` (owner) | `jbaruch/nanoclaw-travel: check-travel-bookings` (read-only) | Suppresses booking-gap reminders for trips to the operator's own metro. Absent ⇒ every trip is checked. |
 | `new_home_wip` | `tessl__trusted-memory` (owner) | **deliberately ignored** by `drive-planner` | Origin switches are an explicit later change, never an auto-pickup. |
 
-**Travel-tile reader contract (consumer-side).** `jbaruch/nanoclaw-travel`'s `skills/drive-planner/home_address.py` is the read-only consumer of `current_home`. The contract this tile guarantees: a `- current_home: <address>` line under a `## Addresses` heading. The reader **refuses to guess** on a missing or malformed block — it raises an actionable error pointing back at this skill, and drive-planner's sweep fails closed (no blocks created) until the block lands. Parsing details (the match pattern, whitespace tolerance) live in that script and its docstring/tests; owner-side reformatting MUST preserve the `- <key>: <value>` line shape, which a nanoclaw-travel fixture pins.
+**Travel-tile reader contract (consumer-side).** `jbaruch/nanoclaw-travel`'s `skills/drive-engine/home_address.py` is the read-only consumer of `current_home`, over the shared block parse in that plugin's `skills/travel-core/addresses.py`. The contract this tile guarantees: a `- current_home: <address>` line under a `## Addresses` heading. The reader **refuses to guess** on a missing or malformed block — it raises an actionable error pointing back at this skill, and drive-planner's sweep fails closed (no blocks created) until the block lands. Parsing details (the match pattern, whitespace tolerance) live in that script and its docstring/tests; owner-side reformatting MUST preserve the `- <key>: <value>` line shape, which a nanoclaw-travel fixture pins.

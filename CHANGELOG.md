@@ -5,6 +5,22 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### Added — `home_metro`, so the travel brief stops nagging about a surgery
+
+`Alice's surgery`, September 16–17, Nashville. The travel-bookings brief listed it under "nothing booked" — technically true, and useless: it is a placeholder trip filed in TripIt to block the day so the scheduling skills see it. There is no flight to book to the city you live in.
+
+The `## Addresses` block goes to `schema_version: 2` with one new optional key, `home_metro`, spelled the way TripIt labels a trip destination (`Nashville, TN`). `jbaruch/nanoclaw-travel@0.2.116` compares each trip's destination against it and skips the local ones (`jbaruch/nanoclaw-travel#271`). Repeat the line to name more than one label — the value carries its own comma, so packing a separator into one value would be ambiguous.
+
+Additive, so the reader needed no change to keep working: an absent `home_metro` means no trip is treated as local, which is exactly what the brief did before. That is also the rollout order `stateful-artifacts` asks for — the reader accepting v2 shipped first, and only then does a block get stamped v2.
+
+The owner-side migration is `scripts/migrate-addresses-block.py` — restamp the block, touch no values, add no `home_metro` line, refuse a stamp above what this writer knows rather than downgrade it. It is a script and not a paragraph of instructions because a fixed parse of a fixed block is the definition of deterministic, and it runs from Step 1 (Bootstrap), so the block migrates when the owner READS it rather than whenever someone next happens to edit the profile. Idempotent, so running it every session costs nothing. It also refuses to stamp a block missing a required key — a record claiming the current shape while missing it sends readers down their block-is-readable path to find nothing, which is worse than the honest old stamp. Seventeen tests pin it, and the key table now marks required versus optional.
+
+`SKILL.md` also stopped paraphrasing its own scripts. It described `register-session.py`'s two-write atomicity, `append-to-daily-log.py`'s lock mechanics and date resolution, and the dedup predicate down to whitespace normalization — every one of them a second copy of what the script already says, in a file that loads on every session. What survives is the contract: what to run, what comes back, and the two outcomes that actually change what the agent does next (an unwritten sentinel re-bootstraps; an all-duplicates append is a valid no-op). The `session-start-auto-context` incident note went to where incident notes go.
+
+`SKILL.md` picked up the authoring shape it never had (#95, closed here): the action-router preamble it was missing, flat `## Step N` headings for the four things it actually does, explicit finish/chain between them, and the store layout, typed-file conventions, size limits, and archival pipeline moved to `references/memory-store.md` — reference material that was never a step. 175 lines down to 111.
+
+The versioning section carried a line saying readers do not inspect `schema_version`. They do now, and the same PR that added the key made the travel side gate on it, so the section says what is true: deploy the reader that accepts a version before stamping a block with it. Two stale references fixed while in there — the reader has lived at `skills/drive-engine/home_address.py` since the drive-planner rename.
+
 ## 0.1.97 — 2026-07-18
 
 ### Add — `google-ops` skill: native Google Calendar/Tasks reads for trusted-tier verification (`jbaruch/nanoclaw-admin#456`)
