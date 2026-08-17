@@ -71,13 +71,15 @@ Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-adm
 - new_home_wip: <new-build street address>
 ```
 
-| Key | Meaning | Mutability |
-|---|---|---|
-| `schema_version` | Block shape version (currently `2`). Bump on any shape change per `jbaruch/coding-policy: stateful-artifacts`. | Owner-only. |
-| `current_home` | The operator's current residence — the origin every home-anchored drive leg routes from. | Owner-updated. Switch to the `new_home_wip` value once that home is occupied. |
-| `home_airport` | Home IATA code (e.g. `BNA`). | Owner-updated. |
-| `home_metro` | The metro the operator lives in, spelled as TripIt labels a trip destination (`<City>, <Region>`, e.g. `Nashville, TN`). Optional. Repeat the line to name more than one label — the value carries its own comma, so a separator inside one value would be ambiguous. | Owner-updated. |
-| `new_home_wip` | New-build street address, not yet occupied. | Owner-updated. **Not** auto-promoted to `current_home` — that is an explicit later edit. |
+| Key | Required | Meaning | Mutability |
+|---|---|---|---|
+| `schema_version` | Yes | Block shape version (currently `2`). Bump on any shape change per `jbaruch/coding-policy: stateful-artifacts`. | Owner-only. |
+| `current_home` | Yes | The operator's current residence — the origin every home-anchored drive leg routes from. | Owner-updated. Switch to the `new_home_wip` value once that home is occupied. |
+| `home_airport` | Yes | Home IATA code (e.g. `BNA`). | Owner-updated. |
+| `home_metro` | No | The metro the operator lives in, spelled as TripIt labels a trip destination (`<City>, <Region>`, e.g. `Nashville, TN`). Repeat the line to name more than one label — the value carries its own comma, so a separator inside one value would be ambiguous. | Owner-updated. |
+| `new_home_wip` | No | New-build street address, not yet occupied. Absent once that home is occupied and its value has moved to `current_home`. | Owner-updated. **Not** auto-promoted to `current_home` — that is an explicit later edit. |
+
+A migration never stamps a block that is missing a required key: publishing a record that claims the current shape while missing it sends readers down their block-is-readable path to find nothing. The check and its diagnostic are in `skills/trusted-memory/scripts/migrate-addresses-block.py`.
 
 The block **separates** the address values that the surrounding prose conflates ("home base / new build"). Keep the prose for the agent; the block exists so script reads get an unambiguous single value per key.
 

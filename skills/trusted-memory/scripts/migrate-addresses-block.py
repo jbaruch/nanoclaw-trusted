@@ -39,9 +39,10 @@ Stdout (single-line JSON per `script-delegation`):
 
 Exit:
     0 — block is at the current version (migrated false) or was migrated
-    1 — profile missing/unreadable, no `## Addresses` block, or the block
-        carries an unreadable or future `schema_version`. Each writes an
-        actionable stderr diagnostic; nothing is rewritten.
+    1 — profile missing/unreadable, no `## Addresses` block, the block carries
+        an unreadable or future `schema_version`, or a block due to be stamped
+        is missing a `REQUIRED_KEYS` entry. Each writes an actionable stderr
+        diagnostic; nothing is rewritten.
 """
 
 from __future__ import annotations
@@ -65,6 +66,15 @@ PROFILE_PATH_ENV = "USER_PROFILE_PATH"
 # The block shape this skill writes. Bump alongside the state-schema's
 # `### vN → vN+1` section, and only once every reader accepting it is deployed.
 CURRENT_SCHEMA_VERSION = 2
+
+# Keys a block must carry before this script will stamp it current. Stamping a
+# block that lacks them would publish a record claiming the current shape while
+# missing it — readers would then take their "block is present and readable"
+# path and find nothing, which is worse than the honest old stamp.
+# `new_home_wip` is deliberately NOT required: it names a house under
+# construction and legitimately disappears once that home is occupied and its
+# value moves to `current_home`. `home_metro` is optional by definition.
+REQUIRED_KEYS = ("current_home", "home_airport")
 
 _ADDRESSES_HEADING_RE = re.compile(r"^[ \t]*##[ \t]+Addresses[ \t]*$", re.MULTILINE)
 _NEXT_H2_RE = re.compile(r"^[ \t]*##[ \t]+\S", re.MULTILINE)
@@ -102,9 +112,16 @@ def migrate(text: str) -> tuple[str, int | None]:
 
     Raises:
         ValueError: no `## Addresses` block, an unreadable `schema_version`
-            value, or a version ABOVE the current one. A future stamp means
-            this writer is the lagging side; rewriting it would DOWNGRADE a
-            block a newer owner wrote, so it refuses.
+            value, a version ABOVE the current one, or a block missing a
+            `REQUIRED_KEYS` entry. A future stamp means this writer is the
+            lagging side; rewriting it would DOWNGRADE a block a newer owner
+            wrote, so it refuses.
+
+    Required keys are checked only on the paths that WRITE. A block already at
+    the current version is returned untouched whatever it contains — this
+    script's job is the stamp, and hard-failing every session over a shape
+    problem it is not about to change would take bootstrap down with it. The
+    readers surface that: `home_address.py` raises on a missing `current_home`.
     """
     bounds = _block_bounds(text)
     if bounds is None:
@@ -117,7 +134,8 @@ def migrate(text: str) -> tuple[str, int | None]:
         # Legacy pre-versioned block: the field was introduced at v1, so a block
         # without it is v1. Insert the stamp as the block's first list line, the
         # position the canonical shape documents.
-        found: int | None = None
+        found = None
+        _require_keys(block)
         stamped = _insert_stamp(block)
     else:
         try:
@@ -131,6 +149,7 @@ def migrate(text: str) -> tuple[str, int | None]:
             )
         if found == CURRENT_SCHEMA_VERSION:
             return text, found
+        _require_keys(block)
         stamped = (
             block[: match.start()]
             + f"{match['prefix']}{CURRENT_SCHEMA_VERSION}{match['trailing']}"
@@ -143,16 +162,32 @@ def migrate(text: str) -> tuple[str, int | None]:
     return text[:start] + stamped + text[end:], found
 
 
+def _require_keys(block: str) -> None:
+    """Raise unless every `REQUIRED_KEYS` entry is present with a non-empty value."""
+    missing = [
+        key
+        for key in REQUIRED_KEYS
+        # Horizontal whitespace only: `\s*` after the colon would cross the
+        # newline and read the NEXT line's `-` as this key's value, so a blank
+        # `- current_home:` would look populated.
+        if not re.search(rf"^[ \t]*-[ \t]*{re.escape(key)}[ \t]*:[ \t]*\S", block, re.MULTILINE)
+    ]
+    if missing:
+        raise ValueError("block is missing required key(s): " + ", ".join(missing))
+
+
 def _insert_stamp(block: str) -> str:
-    """A legacy block with `- schema_version: N` added above its first entry."""
+    """A legacy block with `- schema_version: N` added above its first entry.
+
+    Callers run `_require_keys` first, so the block has at least one entry to
+    insert above.
+    """
     lines = block.split("\n")
     for index, line in enumerate(lines):
         if line.lstrip().startswith("-"):
             lines.insert(index, f"- schema_version: {CURRENT_SCHEMA_VERSION}")
             return "\n".join(lines)
-    # A block with a heading but no entries at all. Appending the stamp keeps the
-    # file parseable; the missing keys are the operator's to add.
-    return block.rstrip("\n") + f"\n- schema_version: {CURRENT_SCHEMA_VERSION}\n"
+    raise ValueError("block is missing required key(s): " + ", ".join(REQUIRED_KEYS))
 
 
 def profile_path(override: str | None = None) -> Path:

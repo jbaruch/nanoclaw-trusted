@@ -175,3 +175,57 @@ def test_env_override(migrate_addresses_block, tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("USER_PROFILE_PATH", str(path))
     assert migrate_addresses_block.main([]) == 0
     assert json.loads(capsys.readouterr().out)["migrated"] is True
+
+
+def test_empty_block_is_never_stamped(migrate_addresses_block, tmp_path, capsys):
+    """Stamping a block with no keys would publish a record claiming the current
+    shape while missing it — readers would take their block-is-readable path and
+    find nothing."""
+    path = _profile(tmp_path, "## Addresses\n<!-- canonical -->\n\n## See also\n")
+    before = path.read_bytes()
+    assert _run(migrate_addresses_block, path) == 1
+    err = capsys.readouterr().err
+    assert "missing required key(s): current_home, home_airport" in err
+    assert path.read_bytes() == before
+
+
+def test_block_missing_a_required_key_is_never_stamped(migrate_addresses_block, tmp_path, capsys):
+    path = _profile(
+        tmp_path,
+        "## Addresses\n- schema_version: 1\n- home_airport: BNA\n",
+    )
+    before = path.read_bytes()
+    assert _run(migrate_addresses_block, path) == 1
+    assert "missing required key(s): current_home" in capsys.readouterr().err
+    assert path.read_bytes() == before
+
+
+def test_blank_required_value_is_treated_as_missing(migrate_addresses_block, tmp_path, capsys):
+    path = _profile(
+        tmp_path,
+        "## Addresses\n- schema_version: 1\n- current_home:   \n- home_airport: BNA\n",
+    )
+    assert _run(migrate_addresses_block, path) == 1
+    assert "missing required key(s): current_home" in capsys.readouterr().err
+
+
+def test_new_home_wip_is_not_required(migrate_addresses_block, tmp_path, capsys):
+    """It names a house under construction and legitimately disappears once that
+    home is occupied and its value moves to `current_home`."""
+    path = _profile(
+        tmp_path,
+        "## Addresses\n- schema_version: 1\n- current_home: 12 Example St\n- home_airport: BNA\n",
+    )
+    assert _run(migrate_addresses_block, path) == 0
+    assert json.loads(capsys.readouterr().out)["migrated"] is True
+
+
+def test_current_block_is_not_shape_checked(migrate_addresses_block, tmp_path, capsys):
+    """A block already current is returned untouched whatever it contains —
+    hard-failing every session over a shape this script is not about to change
+    would take bootstrap down with it. The readers surface that instead."""
+    path = _profile(tmp_path, "## Addresses\n- schema_version: 2\n- home_airport: BNA\n")
+    before = path.read_bytes()
+    assert _run(migrate_addresses_block, path) == 0
+    assert json.loads(capsys.readouterr().out)["migrated"] is False
+    assert path.read_bytes() == before
