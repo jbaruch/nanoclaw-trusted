@@ -55,6 +55,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# E402: the sibling helper is only importable after the sys.path insert above,
+# which must run before this import.
 from memory_write import write_atomic  # noqa: E402
 
 DEFAULT_PROFILE_PATH = "/workspace/trusted/user_profile.md"
