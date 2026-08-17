@@ -5,6 +5,8 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+## 0.1.107 — 2026-08-17
+
 ### Added — `home_metro`, so the travel brief stops nagging about a surgery
 
 `Alice's surgery`, September 16–17, Nashville. The travel-bookings brief listed it under "nothing booked" — technically true, and useless: it is a placeholder trip filed in TripIt to block the day so the scheduling skills see it. There is no flight to book to the city you live in.
