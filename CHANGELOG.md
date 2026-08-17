@@ -13,6 +13,8 @@ The `## Addresses` block goes to `schema_version: 2` with one new optional key, 
 
 Additive, so the reader needed no change to keep working: an absent `home_metro` means no trip is treated as local, which is exactly what the brief did before. That is also the rollout order `stateful-artifacts` asks for — the reader accepting v2 shipped first, and only then does a block get stamped v2.
 
+The owner-side migration — restamp the block, touch no values, add no `home_metro` line — is step 2 of Saving permanent facts, where editing a typed file already happens. The skill's own missing execution-mode preamble and non-flat step numbering are tracked in #95; that is a restructure of a skill loading in every trusted container, not a drive-by inside a schema-doc change.
+
 The versioning section carried a line saying readers do not inspect `schema_version`. They do now, and the same PR that added the key made the travel side gate on it, so the section says what is true: deploy the reader that accepts a version before stamping a block with it. Two stale references fixed while in there — the reader has lived at `skills/drive-engine/home_address.py` since the drive-planner rename.
 
 ## 0.1.97 — 2026-07-18

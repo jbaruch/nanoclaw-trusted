@@ -47,7 +47,7 @@ Content here...
 
 ### Types
 
-**user** — Owner profile, preferences, knowledge level. `user_profile.md` is a canonical, **special-case** file with a fixed name (it does NOT follow the general `user_<slug>.md` / `{type}_{slug}.md` pattern below). It additionally carries the canonical machine-readable `## Addresses` block (`current_home` / `home_airport` / `home_metro` / `new_home_wip`) read by the travel tile — schema and reader contract in `state-schema.md`. This skill owns that block: when editing `user_profile.md`, migrate a block stamped below the current `schema_version` per the owner-side migration in `state-schema.md`, and preserve the `- <key>: <value>` line shape the travel-tile reader parses.
+**user** — Owner profile, preferences, knowledge level. `user_profile.md` is a canonical, **special-case** file with a fixed name (it does NOT follow the general `user_<slug>.md` / `{type}_{slug}.md` pattern below). It additionally carries the canonical machine-readable `## Addresses` block (`current_home` / `home_airport` / `home_metro` / `new_home_wip`) read by the travel tile — schema and reader contract in `state-schema.md`. This skill owns that block; editing it is step 2 of Saving permanent facts below.
 
 **feedback** — Behavioral corrections. Structure as: rule + why + how to apply. Example:
 ```markdown
@@ -158,8 +158,9 @@ Skip for pure heartbeats with nothing to report or trivial acknowledgements.
 When learning something that should persist (owner preference, architecture decision, new contact, external system reference):
 
 1. Create or update the appropriate typed file in `/workspace/trusted/`
-2. Add or update its one-line entry in `/workspace/trusted/MEMORY.md`
-3. Also append to today's daily log (so archival can track when it was learned)
+2. Editing `user_profile.md`: migrate its `## Addresses` block when the block's `schema_version` sits below the current one, per the owner-side migration in `state-schema.md` — restamp, leave every existing value untouched, preserve the `- <key>: <value>` line shape the travel-tile reader parses. A block already at the current version needs no edit. Continue to step 3 either way; every other typed file skips this step.
+3. Add or update its one-line entry in `/workspace/trusted/MEMORY.md`
+4. Also append to today's daily log (so archival can track when it was learned)
 
 Do NOT wait for nightly archival to create typed files — save immediately.
 
