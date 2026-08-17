@@ -5,6 +5,16 @@
      them before publishing — do not add it manually (jbaruch/coding-policy:
      context-artifacts). -->
 
+### Added — `home_metro`, so the travel brief stops nagging about a surgery
+
+`Alice's surgery`, September 16–17, Nashville. The travel-bookings brief listed it under "nothing booked" — technically true, and useless: it is a placeholder trip filed in TripIt to block the day so the scheduling skills see it. There is no flight to book to the city you live in.
+
+The `## Addresses` block goes to `schema_version: 2` with one new optional key, `home_metro`, spelled the way TripIt labels a trip destination (`Nashville, TN`). `jbaruch/nanoclaw-travel@0.2.116` compares each trip's destination against it and skips the local ones (`jbaruch/nanoclaw-travel#271`). Repeat the line to name more than one label — the value carries its own comma, so packing a separator into one value would be ambiguous.
+
+Additive, so the reader needed no change to keep working: an absent `home_metro` means no trip is treated as local, which is exactly what the brief did before. That is also the rollout order `stateful-artifacts` asks for — the reader accepting v2 shipped first, and only then does a block get stamped v2.
+
+The versioning section carried a line saying readers do not inspect `schema_version`. They do now, and the same PR that added the key made the travel side gate on it, so the section says what is true: deploy the reader that accepts a version before stamping a block with it. Two stale references fixed while in there — the reader has lived at `skills/drive-engine/home_address.py` since the drive-planner rename.
+
 ## 0.1.97 — 2026-07-18
 
 ### Add — `google-ops` skill: native Google Calendar/Tasks reads for trusted-tier verification (`jbaruch/nanoclaw-admin#456`)
