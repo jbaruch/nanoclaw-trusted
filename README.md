@@ -52,3 +52,10 @@ Always-on rules are loaded into every turn's context. Conditional rules are load
 | [google-ops](skills/google-ops/SKILL.md) | Native Google Calendar + Tasks reads over the OneCLI gateway, for trusted-tier ground-truth verification (`google-calendar.py events-list`, `google-tasks.py list-tasklists`/`list`/`get`). Ships the shared `google-rest.py` transport; the gateway injects the Bearer on the wire, so no Google credential lives in the container. Extracted from `nanoclaw-admin`'s heartbeat scripts (`nanoclaw-admin#456`) so trusted containers reach the ops `ground-truth-trusted.md` names without co-loading the whole admin tile. Gmail intentionally excluded. |
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+## Development dependencies
+
+`tessl.json` declares this repo's dev-time plugin dependencies.
+
+- Every `jbaruch/*` dependency floats at `latest` (Runtime-Managed Manifest Carve-Out, `jbaruch/coding-policy: dependency-management`).
+- `finsi/codex-review` is third-party and pins. No dependency scanner covers the tessl ecosystem. Renewal cadence: quarterly — run `tessl outdated` and bump the pin in its own commit.
