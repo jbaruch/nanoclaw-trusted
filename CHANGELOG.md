@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.1.109 — 2026-08-18
+
 ### Chore — commit `tessl.json` as the dependency manifest it is
 
 `.gitignore` excluded `tessl.json`, so the repo carried no committed declaration of what it depends on, and `hooks/check-tessl-latest.sh` in `jbaruch/coding-policy` — the deterministic enforcement for the Runtime-Managed Manifest Carve-Out — took its "no manifest, not a consumer" silent no-op path every session. With nothing watching, the untracked local manifest drifted to `"mode": "vendored"` with literal version pins.
