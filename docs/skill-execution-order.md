@@ -28,26 +28,31 @@ SELECT id, schedule FROM scheduled_tasks WHERE source = 'cadence-registry';
 
 ## What this plugin's skills touch
 
-| Skill | State touched |
-|---|---|
-| `google-ops` | none |
-| `status` | none — computes from the container, persists nothing |
-| `system-status` | `/workspace/group/system-health-dismissed.json`, `messages.db` |
-| `trusted-memory` | `/workspace/group/memory/`, `/workspace/group/session-state.json` (+ `.lock`), `travel-db.json`, `messages.db` |
+| Skill | State touched | Role |
+|---|---|---|
+| `google-ops` | none | — |
+| `status` | none — computes from the container, persists nothing | — |
+| `system-status` | `messages.db` | reads only; emits its report on stdout and writes no file |
+| `trusted-memory` | `/workspace/group/session-state.json` (+ `.lock`) | **writes** — `register-session.py` owns the `sessions.<session_name>` subtree and its `schema_version` |
+| `trusted-memory` | `/workspace/group/memory/`, `travel-db.json`, `messages.db` | reads |
 
-## Shared state files, and who owns them
+`system-status` explicitly does **not** consult or write `/workspace/group/system-health-dismissed.json`, and its own SKILL.md says so under "What this skill is NOT" — that file is `nanoclaw-admin`'s `heartbeat` domain. Trusted reports verbatim and the operator decides. An earlier draft of this table listed it here on the strength of a filename grep that matched that very disclaimer; caught in review.
 
-Reader/writer contract for the files this plugin shares. Owner counts are skill files referencing each path, per repo.
+## Shared state files: where to find each contract
 
-| File | Owning plugin | Also read by |
-|------|---------------|--------------|
-| `/workspace/group/session-state.json` | `nanoclaw-admin` (8) | `nanoclaw-trusted` (3) |
-| `/workspace/group/travel-db.json` | `nanoclaw-travel` (15) | `nanoclaw-admin` (1), `nanoclaw-trusted` (1) |
-| `/workspace/group/calendar-state.json` | `nanoclaw-admin` (4) | — |
-| `/workspace/group/morning-brief-pending.json` | `nanoclaw-admin` (12) | — |
-| `/workspace/group/cfp-state.json` | `nanoclaw-conferences` (19) | `nanoclaw-admin` (5) |
-| `/workspace/group/system-health-dismissed.json` | `nanoclaw-trusted` | — |
+This is an **index, not a contract**. `coding-policy: stateful-artifacts` puts the schema and the writer/reader contract next to the owner skill, so each row points at the plugin that owns the file rather than restating guarantees here. A second copy of a four-repo contract maintained from inside one repo is exactly what went stale above.
 
-Cross-trust-tier skills persist under `/workspace/state/<skill-name>/` instead, which is RW in every container regardless of tier — see `nanoclaw-host: cross-tier-skill-state`. `/workspace/group/` is RW for trusted and main, RO for untrusted, so a file in the table above is not writable from an untrusted container.
+| File under `/workspace/group/` | Owning plugin | This plugin's role |
+|---|---|---|
+| `session-state.json` | `nanoclaw-admin` | **writes** via `trusted-memory` — see the caveat below |
+| `travel-db.json` | `nanoclaw-travel` | reads (`trusted-memory`) |
+| `calendar-state.json` | `nanoclaw-admin` | none |
+| `morning-brief-pending.json` | `nanoclaw-admin` | none |
+| `cfp-state.json` | `nanoclaw-conferences` | none |
+| `system-health-dismissed.json` | `nanoclaw-admin` (`heartbeat`) | none — see `system-status` above |
 
-Before relying on any row here, verify against the live tree — this is a last-seen snapshot, not authority, per `coding-policy: stateful-artifacts`.
+**`session-state.json` has more than one writer across plugins.** `trusted-memory/register-session.py` here, and several `nanoclaw-admin` skills. `stateful-artifacts` wants a single owner skill responsible for shape changes, because shared ownership means nobody owns the migration. Treat a shape change to this file as cross-plugin work, and check both sides before bumping its `schema_version`.
+
+Cross-trust-tier skills persist under `/workspace/state/<skill-name>/` instead, which is RW in every container regardless of tier — see `nanoclaw-host: cross-tier-skill-state`. `/workspace/group/` is RW for trusted and main, RO for untrusted, so nothing in the table above is writable from an untrusted container.
+
+Before relying on any row, verify against the live tree — this is a last-seen snapshot, not authority, per `coding-policy: stateful-artifacts`.

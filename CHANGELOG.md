@@ -10,7 +10,9 @@ The narratives are replaced by a table of where each skill went, plus the `sched
 
 The shared-state table stays — `#100` called it the authoritative part — but with derived current owners rather than the pre-split ones, counted per repo: `session-state.json` and `morning-brief-pending.json` and `calendar-state.json` are `nanoclaw-admin`'s, `travel-db.json` is `nanoclaw-travel`'s, `cfp-state.json` is `nanoclaw-conferences`', `system-health-dismissed.json` is this plugin's. Added a note that cross-trust-tier skills belong under `/workspace/state/<skill-name>/` instead, since `/workspace/group/` is RO for untrusted.
 
-A new section records what this plugin's own four skills actually touch. The currency note is gone: it existed to disclaim content that no longer exists.
+A new section records what this plugin's own four skills actually touch, with each skill's role. The currency note is gone: it existed to disclaim content that no longer exists.
+
+Two review findings corrected the first draft. It credited `system-status` with `/workspace/group/system-health-dismissed.json` on the strength of a filename grep that had in fact matched that skill's own "What this skill is NOT" disclaimer — the file is `nanoclaw-admin` `heartbeat`'s, and `system-status` writes no file at all, emitting its report on stdout. The draft also labelled its table a reader/writer contract while giving only plugin names and per-repo reference counts, which do not establish ownership. Counts are gone: the table is now explicitly an index, pointing at the plugin whose owner skill holds each contract, because `coding-policy: stateful-artifacts` puts the schema next to the owner skill and a second copy of a four-repo contract maintained from inside one repo is the exact rot this rewrite is undoing. It also now records that `session-state.json` has writers in two plugins — `trusted-memory/register-session.py` here plus several admin skills — which `stateful-artifacts` flags as the shared-ownership case where nobody owns the migration.
 
 ## 0.1.109 — 2026-08-18
 
