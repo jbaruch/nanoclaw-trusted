@@ -43,13 +43,15 @@ SELECT id, schedule FROM scheduled_tasks WHERE source = 'cadence-registry';
 
 This is an **index, not a contract**. `coding-policy: stateful-artifacts` puts the schema and the writer/reader contract next to the owner skill, so each row points at the plugin that owns the file rather than restating guarantees here. A second copy of a four-repo contract maintained from inside one repo is exactly what went stale above.
 
-| File under `/workspace/group/` | Owner skill | This plugin's role |
+| File under `/workspace/group/` | Owning plugin | This plugin's role |
 |---|---|---|
-| `session-state.json` | **`nanoclaw-trusted: trusted-memory`** | owner skill — contract in `skills/trusted-memory/state-schema.md` |
+| `session-state.json` | `nanoclaw-trusted` | **owner** — owner skill `tessl__trusted-memory`, contract in `skills/trusted-memory/state-schema.md` |
 | `calendar-state.json` | `nanoclaw-admin` | none |
 | `morning-brief-pending.json` | `nanoclaw-admin` | none |
 | `cfp-state.json` | `nanoclaw-conferences` | none |
-| `system-health-dismissed.json` | `nanoclaw-admin: heartbeat` | none — see `system-status` above |
+| `system-health-dismissed.json` | `nanoclaw-admin` | none — see `system-status` above |
+
+The column names the owning **plugin**, not the owner skill. `stateful-artifacts` requires a single owner skill per artifact, and puts that declaration in the owning plugin's own `state-schema.md` — naming it a second time from here is how this file went stale before. For every row but the first, go to that plugin and read its schema. The first row is named in full because its authority lives in this repo.
 
 **`session-state.json` is owned here.** The owner skill is `tessl__trusted-memory`; `register-session.py` is the script that implements its write and migration. `skills/trusted-memory/state-schema.md` is the contract — it carries the field-level writer/reader table and the `schema_version` rules, and it is the only place that migrates the shape. Do not restate any of it here.
 
