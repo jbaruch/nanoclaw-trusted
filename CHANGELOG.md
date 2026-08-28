@@ -1,5 +1,17 @@
 # Changelog
 
+### Re-derive `docs/skill-execution-order.md` from what ships today (`#100`)
+
+The doc still listed `check-orders` under Nightly Housekeeping, but patching that one line would have made a single line accurate inside a narrative that was wrong end to end — which is what `#100` asked to avoid.
+
+Re-derived instead. Every skill the step-numbered narratives described has left this plugin: `heartbeat` / `morning-brief` / `check-calendar` to `nanoclaw-admin`, `check-travel-bookings` to `nanoclaw-travel`, `check-cfps` to `nanoclaw-conferences`, `check-watchlist` to `nanoclaw-media`, `check-orders` retired with the overlay, `nightly-housekeeping` split into 11 sub-skills by `jbaruch/nanoclaw#404`, and `task-tz-sync` gone from every repo in the fleet. This plugin ships `google-ops`, `status`, `system-status`, and `trusted-memory`, and **none declares `cadence:` frontmatter** — so the doc's "cron-driven trusted-tier flows" premise was false, not merely stale.
+
+The narratives are replaced by a table of where each skill went, plus the `scheduled_tasks` query that reads the live cadence set. A chain spanning four repos cannot be kept current from inside one of them, which is exactly how the previous version rotted under its own currency note; the fix is to stop trying rather than to renumber.
+
+The shared-state table stays — `#100` called it the authoritative part — but with derived current owners rather than the pre-split ones, counted per repo: `session-state.json` and `morning-brief-pending.json` and `calendar-state.json` are `nanoclaw-admin`'s, `travel-db.json` is `nanoclaw-travel`'s, `cfp-state.json` is `nanoclaw-conferences`', `system-health-dismissed.json` is this plugin's. Added a note that cross-trust-tier skills belong under `/workspace/state/<skill-name>/` instead, since `/workspace/group/` is RO for untrusted.
+
+A new section records what this plugin's own four skills actually touch. The currency note is gone: it existed to disclaim content that no longer exists.
+
 ## 0.1.109 — 2026-08-18
 
 ### Chore — commit `tessl.json` as the dependency manifest it is
