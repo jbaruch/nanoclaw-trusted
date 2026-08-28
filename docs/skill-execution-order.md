@@ -33,8 +33,9 @@ SELECT id, schedule FROM scheduled_tasks WHERE source = 'cadence-registry';
 | `google-ops` | none | — |
 | `status` | none — computes from the container, persists nothing | — |
 | `system-status` | `messages.db` | reads only; emits its report on stdout and writes no file |
-| `trusted-memory` | `/workspace/group/session-state.json` (+ `.lock`) | **writes** — `register-session.py` owns the `sessions.<session_name>` subtree and its `schema_version` |
-| `trusted-memory` | `/workspace/group/memory/`, `travel-db.json`, `messages.db` | reads |
+| `trusted-memory` | `/workspace/group/session-state.json` (+ `.lock`) | **owner** — `register-session.py` |
+| `trusted-memory` | `/workspace/group/memory/` | read **and write** — `append-to-daily-log.py` writes `memory/daily/<UTC-today>.md` |
+| `trusted-memory` | `messages.db` | reads |
 
 `system-status` explicitly does **not** consult or write `/workspace/group/system-health-dismissed.json`, and its own SKILL.md says so under "What this skill is NOT" — that file is `nanoclaw-admin`'s `heartbeat` domain. Trusted reports verbatim and the operator decides. An earlier draft of this table listed it here on the strength of a filename grep that matched that very disclaimer; caught in review.
 
@@ -42,16 +43,17 @@ SELECT id, schedule FROM scheduled_tasks WHERE source = 'cadence-registry';
 
 This is an **index, not a contract**. `coding-policy: stateful-artifacts` puts the schema and the writer/reader contract next to the owner skill, so each row points at the plugin that owns the file rather than restating guarantees here. A second copy of a four-repo contract maintained from inside one repo is exactly what went stale above.
 
-| File under `/workspace/group/` | Owning plugin | This plugin's role |
+| File under `/workspace/group/` | Owner skill | This plugin's role |
 |---|---|---|
-| `session-state.json` | `nanoclaw-admin` | **writes** via `trusted-memory` — see the caveat below |
-| `travel-db.json` | `nanoclaw-travel` | reads (`trusted-memory`) |
+| `session-state.json` | **`nanoclaw-trusted: trusted-memory`** | owner — contract in `skills/trusted-memory/state-schema.md` |
 | `calendar-state.json` | `nanoclaw-admin` | none |
 | `morning-brief-pending.json` | `nanoclaw-admin` | none |
 | `cfp-state.json` | `nanoclaw-conferences` | none |
-| `system-health-dismissed.json` | `nanoclaw-admin` (`heartbeat`) | none — see `system-status` above |
+| `system-health-dismissed.json` | `nanoclaw-admin: heartbeat` | none — see `system-status` above |
 
-**`session-state.json` has more than one writer across plugins.** `trusted-memory/register-session.py` here, and several `nanoclaw-admin` skills. `stateful-artifacts` wants a single owner skill responsible for shape changes, because shared ownership means nobody owns the migration. Treat a shape change to this file as cross-plugin work, and check both sides before bumping its `schema_version`.
+**`session-state.json` is owned here.** `skills/trusted-memory/state-schema.md` is its contract: `register-session.py` is the owner skill, it alone migrates the shape, and it carries the field-level writer/reader table and the `schema_version` rules. Do not restate any of that here.
+
+Non-owner writers are not co-owners. `nanoclaw-admin`'s `heartbeat` (`last_seen`, stale `pending_response`) and `check-email` (`seen_email_ids`, `pending_response`, `muted_threads`) write individual fields, and every one of them must hold `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for its whole read-modify-write cycle or concurrent updates clobber each other. Writing a field does not confer schema ownership — a shape change is still `trusted-memory`'s call, and readers that meet an unrecognised `schema_version` take their no-usable-prior-state path rather than migrating.
 
 Cross-trust-tier skills persist under `/workspace/state/<skill-name>/` instead, which is RW in every container regardless of tier — see `nanoclaw-host: cross-tier-skill-state`. `/workspace/group/` is RW for trusted and main, RO for untrusted, so nothing in the table above is writable from an untrusted container.
 
