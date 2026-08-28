@@ -45,15 +45,15 @@ This is an **index, not a contract**. `coding-policy: stateful-artifacts` puts t
 
 | File under `/workspace/group/` | Owner skill | This plugin's role |
 |---|---|---|
-| `session-state.json` | **`nanoclaw-trusted: trusted-memory`** | owner — contract in `skills/trusted-memory/state-schema.md` |
+| `session-state.json` | **`nanoclaw-trusted: trusted-memory`** | owner skill — contract in `skills/trusted-memory/state-schema.md` |
 | `calendar-state.json` | `nanoclaw-admin` | none |
 | `morning-brief-pending.json` | `nanoclaw-admin` | none |
 | `cfp-state.json` | `nanoclaw-conferences` | none |
 | `system-health-dismissed.json` | `nanoclaw-admin: heartbeat` | none — see `system-status` above |
 
-**`session-state.json` is owned here.** `skills/trusted-memory/state-schema.md` is its contract: `register-session.py` is the owner skill, it alone migrates the shape, and it carries the field-level writer/reader table and the `schema_version` rules. Do not restate any of that here.
+**`session-state.json` is owned here.** The owner skill is `tessl__trusted-memory`; `register-session.py` is the script that implements its write and migration. `skills/trusted-memory/state-schema.md` is the contract — it carries the field-level writer/reader table and the `schema_version` rules, and it is the only place that migrates the shape. Do not restate any of it here.
 
-Non-owner writers are not co-owners. `nanoclaw-admin`'s `heartbeat` (`last_seen`, stale `pending_response`) and `check-email` (`seen_email_ids`, `pending_response`, `muted_threads`) write individual fields, and every one of them must hold `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for its whole read-modify-write cycle or concurrent updates clobber each other. Writing a field does not confer schema ownership — a shape change is still `trusted-memory`'s call, and readers that meet an unrecognised `schema_version` take their no-usable-prior-state path rather than migrating.
+Non-owner writers are not co-owners. `nanoclaw-admin`'s `heartbeat` (`last_seen`, stale `pending_response`) and `check-email` (`seen_email_ids`, `pending_response`, `muted_threads`) write individual fields, and every one of them must hold `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for its whole read-modify-write cycle or concurrent updates clobber each other. Writing a field does not confer schema ownership — a shape change is still the `trusted-memory` skill's call, and readers that meet an unrecognised `schema_version` take their no-usable-prior-state path rather than migrating.
 
 Cross-trust-tier skills persist under `/workspace/state/<skill-name>/` instead, which is RW in every container regardless of tier — see `nanoclaw-host: cross-tier-skill-state`. `/workspace/group/` is RW for trusted and main, RO for untrusted, so nothing in the table above is writable from an untrusted container.
 
