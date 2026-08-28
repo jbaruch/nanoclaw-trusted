@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.1.110 — 2026-08-28
+
 ### Re-derive `docs/skill-execution-order.md` from what ships today (`#100`)
 
 The doc still listed `check-orders` under Nightly Housekeeping, but patching that one line would have made a single line accurate inside a narrative that was wrong end to end — which is what `#100` asked to avoid.
