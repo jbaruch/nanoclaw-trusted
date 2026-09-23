@@ -1,6 +1,6 @@
 ---
 name: google-ops
-description: "Native Google Calendar and Tasks reads over the OneCLI gateway, for trusted-tier ground-truth verification. Run google-calendar.py events-list to read the owner's calendar, or google-tasks.py list-tasklists / list / get to read task lists and task status. The OneCLI gateway injects the Bearer on the wire — no Google credential in the container. Gmail is intentionally excluded. Use when a trusted agent must verify a calendar event or a task/todo status, or otherwise read the owner's Calendar or Tasks."
+description: Native Google Calendar and Tasks reads over the OneCLI gateway, for trusted-tier ground-truth verification. Gmail is intentionally excluded. Use when a trusted agent must verify a calendar event or a task/todo status, or otherwise read the owner's Calendar or Tasks.
 user-invocable: false
 ---
 
