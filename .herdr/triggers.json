@@ -7,6 +7,7 @@
   "package_change_lines": 400,
   "trust_boundary_paths": [
     ".github/workflows/*",
+    ".github/fleet-review-enabled",
     "rules/container-trust-levels.md",
     "rules/installed-content-immutable.md",
     "rules/verification-protocol.md",
@@ -22,7 +23,8 @@
   "cli_surface_markers": [
     "add_parser(",
     "add_argument(",
-    "ArgumentParser("
+    "ArgumentParser(",
+    "sys.argv"
   ],
   "user_doc_paths": [
     "README.md",
