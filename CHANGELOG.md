@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.1.114 — 2026-09-23
+
 ### Trim skill descriptions that carry implementation detail (#965 sibling)
 
 `google-ops` 509→266 B and `trusted-memory` 542→498 B. The skill listing rides the prompt on every interactive turn while SKILL.md bodies load only on invocation, so script invocation syntax and file manifests cost bytes every turn and buy nothing at discovery time. `google-ops` loses the `google-calendar.py` / `google-tasks.py` command forms and the Bearer-injection note from its description; both are already documented in the skill body. Trigger phrasing is unchanged.
