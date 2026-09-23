@@ -24,3 +24,6 @@ docs/
 # Tessl consumer-side install state. `tessl.json` is committed (it is the
 # manifest, not install state) but has no place in a consumer's checkout.
 /tessl.json
+
+# Internal Herdr orchestration metadata is repo-only.
+.herdr/
