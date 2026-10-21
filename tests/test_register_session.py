@@ -49,6 +49,7 @@ def register_session(tmp_path, monkeypatch):
     """Fresh module per test with all I/O paths redirected into tmp_path.
     Caller is responsible for populating messages.db (or leaving it
     missing for the sqlite-error path)."""
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     messages_db = tmp_path / "messages.db"
     state_path = tmp_path / "session-state.json"
     sentinel = tmp_path / "session_bootstrapped"
@@ -110,6 +111,47 @@ def test_missing_claude_session_id_skips_sentinel(register_session, monkeypatch,
     assert payload["wrote_sentinel"] is False
     assert state_path.exists()
     assert not sentinel.exists()
+
+
+@pytest.mark.parametrize(
+    "legacy,code,expected",
+    [
+        (None, "code-A", "code-A"),
+        ("", "code-A", "code-A"),
+        ("legacy-A", "code-A", "legacy-A"),
+        ("legacy-A", None, "legacy-A"),
+    ],
+)
+def test_shared_identity_roundtrip_skips_same_session_and_reboots_new_one(
+    register_session, monkeypatch, capsys, legacy, code, expected
+):
+    module, messages_db, state_path, sentinel = register_session
+    _make_messages_db(messages_db, "db-session")
+    for name, value in [("CLAUDE_SESSION_ID", legacy), ("CLAUDE_CODE_SESSION_ID", code)]:
+        if value is None:
+            monkeypatch.delenv(name, raising=False)
+        else:
+            monkeypatch.setenv(name, value)
+    _, result = _run_and_capture(module, capsys)
+    assert result["wrote_sentinel"] is True
+    assert sentinel.read_text() == expected
+    assert json.loads(state_path.read_text())["session_id"] == "db-session"
+
+    reader = load_script(
+        "needs_bootstrap_roundtrip", "skills/trusted-memory/scripts/needs-bootstrap.py"
+    )
+    monkeypatch.setattr(reader, "SENTINEL", str(sentinel))
+    with pytest.raises(SystemExit) as outcome:
+        reader.main()
+    assert outcome.value.code == 1
+    assert json.loads(capsys.readouterr().out)["needs_bootstrap"] is False
+
+    source = "CLAUDE_SESSION_ID" if legacy else "CLAUDE_CODE_SESSION_ID"
+    monkeypatch.setenv(source, "next-session")
+    with pytest.raises(SystemExit) as outcome:
+        reader.main()
+    assert outcome.value.code == 0
+    assert json.loads(capsys.readouterr().out)["reason"] == "sentinel_mismatch"
 
 
 def test_sqlite_error_falls_back_to_null_session_id(register_session, monkeypatch, capsys):

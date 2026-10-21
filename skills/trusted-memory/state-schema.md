@@ -43,9 +43,11 @@ Mutable JSON object. Per-group, not shared across containers.
 
 ### `/tmp/session_bootstrapped`
 
-Plain-text sentinel. One line: the value of `$CLAUDE_SESSION_ID` from the run that completed bootstrap.
+Plain-text sentinel. One line: the resolved current Claude session ID from the run that completed bootstrap. The shared `scripts/session_identity.py` resolver uses nonempty `CLAUDE_SESSION_ID` first, then nonempty `CLAUDE_CODE_SESSION_ID`; both sentinel scripts use this resolver.
 
-`needs-bootstrap.py` compares this file's contents to the current `$CLAUDE_SESSION_ID`. Mismatch (or missing file) → bootstrap is needed. `register-session.py` REFUSES to write an empty sentinel because an empty value would match an empty env var on the next run and permanently suppress bootstrap.
+`needs-bootstrap.py` compares this file's contents to the resolved current identity. Mismatch (or missing file) → bootstrap is needed. `register-session.py` REFUSES to write an empty sentinel when neither variable supplies an identity. The state format is unchanged.
+
+Claude Code [sets `CLAUDE_CODE_SESSION_ID` for Bash and hook subprocesses](https://code.claude.com/docs/en/env-vars#environment-variables): it matches the hook session identity, changes on `/clear`, and uses the resumed ID for an explicit `--resume <session-id>`. A changed identity triggers bootstrap again; repeated calls with the same identity skip it.
 
 ## Schema versioning
 
@@ -53,7 +55,7 @@ Plain-text sentinel. One line: the value of `$CLAUDE_SESSION_ID` from the run th
 
 Reader skills (`jbaruch/nanoclaw-admin: tessl__heartbeat`, `jbaruch/nanoclaw-admin: tessl__check-email`) MUST treat an unknown future version (`schema_version > 1`) as "no usable prior state" and let the next `register-session.py` run perform the upgrade — never migrate from a reader.
 
-`/tmp/session_bootstrapped` is a single-line plain-text sentinel; it has no envelope shape to version. The only behavioral contract is "non-empty content = bootstrap was completed for this `$CLAUDE_SESSION_ID`", and that contract is stable.
+`/tmp/session_bootstrapped` is a single-line plain-text sentinel; it has no envelope shape to version. Nonempty content means bootstrap completed for that resolved current session identity. The file shape is unchanged.
 
 ## `/workspace/trusted/user_profile.md` — `## Addresses` block
 

@@ -16,7 +16,7 @@ alwaysApply: true
 ## Sentinel ownership
 
 - The skill runs `needs-bootstrap` and `register-session` itself.
-- Sentinel `/tmp/session_bootstrapped` stores the current `$CLAUDE_SESSION_ID`.
+- Sentinel `/tmp/session_bootstrapped` stores the resolved current session identity; its lookup contract is in the state-shape reference below.
 - Re-bootstrap on a missing or mismatched sentinel; skip on a match.
 - Do NOT read or write the sentinel by hand.
 - A hand-written value does NOT satisfy the session-id contract.
