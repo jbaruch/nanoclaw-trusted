@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.1.125 — 2026-10-21
+
 ### Reuse the current Claude Code session for memory bootstrap (#117)
 
 The sentinel reader and writer now share one identity resolver: explicit legacy session IDs retain precedence, with Claude Code's current session ID as fallback. Repeated calls in one session skip bootstrap, and a changed or missing identity still requires it. The sentinel and session-state formats stay unchanged.
