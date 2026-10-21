@@ -19,6 +19,7 @@ def needs_bootstrap_module(tmp_path, monkeypatch):
     """Fresh module instance per test with the SENTINEL path redirected
     into tmp_path. The sentinel file is NOT created — callers create it
     when they need a present-sentinel scenario."""
+    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
     sentinel = tmp_path / "session_bootstrapped"
     module = load_script(f"needs_bootstrap_{tmp_path.name}", SCRIPT_REL)
     monkeypatch.setattr(module, "SENTINEL", str(sentinel))

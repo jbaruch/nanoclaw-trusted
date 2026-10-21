@@ -6,7 +6,7 @@ Usage:
 
 Exit codes:
     0 — bootstrap IS needed (no sentinel, or sentinel points to a
-        different session than `$CLAUDE_SESSION_ID`)
+        different session than the resolved current Claude session ID)
     1 — bootstrap NOT needed (sentinel matches current session)
 
 Stdout (JSON, per `jbaruch/coding-policy: script-delegation`):
@@ -19,8 +19,14 @@ container still triggers bootstrap — the sentinel is keyed per
 session, not per container.
 """
 import json
-import os
 import sys
+from pathlib import Path
+
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+
+from session_identity import current_session_id  # noqa: E402
 
 SENTINEL = "/tmp/session_bootstrapped"
 
@@ -41,14 +47,15 @@ def emit(needs_bootstrap: bool, current: str, stored, reason: str) -> None:
 
 
 def main() -> None:
-    current = os.environ.get("CLAUDE_SESSION_ID", "")
+    current = current_session_id()
 
     if not current:
         # Empty env cannot safely "match" a stored sentinel: if both are
         # empty the script would report "already bootstrapped" and skip
         # memory load forever. Treat empty env as bootstrap-needed.
         print(
-            "needs-bootstrap: $CLAUDE_SESSION_ID missing/empty; defaulting to bootstrap-needed",
+            "needs-bootstrap: set CLAUDE_SESSION_ID or use Claude Code's CLAUDE_CODE_SESSION_ID; "
+            "both are missing/empty, so bootstrap is needed",
             file=sys.stderr,
         )
         emit(True, current, None, "claude_session_id_missing")

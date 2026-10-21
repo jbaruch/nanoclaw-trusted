@@ -11,8 +11,8 @@ Reads:
       `rules/messages-db-schema.md`; the single-row assumption behind
       "first row" is documented at the query site below.
     - Session name from `$NANOCLAW_SESSION_NAME` (defaults to `default`).
-    - Current session ID from `$CLAUDE_SESSION_ID` (for the bootstrap
-      sentinel).
+    - Current bootstrap session ID from `session_identity.py`; the lookup
+      contract is in `state-schema.md`.
 
 Writes (both atomically, tempfile + fsync + os.replace):
     - `/workspace/group/session-state.json` — updates
@@ -20,14 +20,14 @@ Writes (both atomically, tempfile + fsync + os.replace):
       last_seen}` and mirrors `session_id` at the top level for
       back-compat.
     - `/tmp/session_bootstrapped` — sentinel containing the current
-      CLAUDE_SESSION_ID so `needs-bootstrap.py` reports "done" on
-      subsequent runs. NOT written when CLAUDE_SESSION_ID is missing
+      resolved Claude session ID so `needs-bootstrap.py` reports "done" on
+      subsequent runs. NOT written when both identity variables are missing
       or empty — an empty sentinel would match an empty env on the
       next run and cause bootstrap to be skipped forever.
 
 Exit codes:
     0 — success (state written; sentinel skipped is still success
-        when CLAUDE_SESSION_ID is empty/unset, with a stderr note)
+        when the resolved identity is empty, with a stderr note)
     1 — state file read/write failure
 
 Note on sqlite behavior: the previous inline block would have raised
@@ -64,6 +64,7 @@ if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
 from memory_write import write_atomic  # noqa: E402
+from session_identity import current_session_id  # noqa: E402
 
 # messages.db can be locked by the orchestrator's writer during bootstrap;
 # without a timeout sqlite3.connect waits forever. 10s keeps the bootstrap
@@ -122,7 +123,7 @@ def atomic_write_json(path: str, data: dict) -> None:
 def main() -> None:
     session_id = read_session_id_from_db()
     session_name = os.environ.get("NANOCLAW_SESSION_NAME", "default")
-    claude_session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    claude_session_id = current_session_id()
 
     # Hold LOCK_EX on STATE_LOCK_PATH for the entire read-modify-write
     # cycle. Other writers on this file must use the same lock; without
@@ -205,15 +206,12 @@ def main() -> None:
         # Closing the fd releases the flock; no explicit LOCK_UN needed.
         lock_f.close()
 
-    # Refuse to write an empty sentinel. An empty string would match the
-    # default `$CLAUDE_SESSION_ID` fallback in needs-bootstrap.py
-    # (`os.environ.get(..., "")`), so a subsequent run would read an
-    # empty sentinel, see an empty current session, and incorrectly
-    # decide bootstrap was already done — permanently skipping memory
-    # load for every future session until the file is removed.
+    # Both callers use one resolver. Missing identity must leave bootstrap
+    # required instead of stamping an empty sentinel that could match forever.
     if not claude_session_id:
         print(
-            "register-session: $CLAUDE_SESSION_ID missing/empty; skipping sentinel write so next run re-bootstraps",
+            "register-session: set CLAUDE_SESSION_ID or use Claude Code's CLAUDE_CODE_SESSION_ID; "
+            "both are missing/empty, so the sentinel is skipped and the next run re-bootstraps",
             file=sys.stderr,
         )
         emit_status(session_id, session_name, wrote_sentinel=False)
