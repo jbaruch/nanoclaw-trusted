@@ -46,6 +46,7 @@ class _MockServer(HTTPServer):
 
     requests_seen: list[dict[str, Any]]
     response_body: Any
+    response_pages: list[Any]
     response_status: int
 
 
@@ -70,7 +71,8 @@ class _Handler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
             return
-        payload = json.dumps(server.response_body).encode("utf-8")
+        body = server.response_pages.pop(0) if server.response_pages else server.response_body
+        payload = json.dumps(body).encode("utf-8")
         self.send_response(server.response_status)
         self.send_header("content-type", "application/json")
         self.send_header("content-length", str(len(payload)))
@@ -92,6 +94,7 @@ def tasks_api(monkeypatch):
     port = httpd.server_address[1]
     httpd.requests_seen = []
     httpd.response_body = {"items": []}
+    httpd.response_pages = []
     httpd.response_status = 200
     threading.Thread(target=lambda: httpd.serve_forever(poll_interval=0.01), daemon=True).start()
     monkeypatch.setenv(
@@ -176,6 +179,39 @@ def test_list_serializes_json_booleans_as_true_false(tasks_api, monkeypatch, cap
     assert rc == 0
     seen = tasks_api.requests_seen[0]
     assert seen["query"] == {"showCompleted": ["true"], "showHidden": ["false"]}
+
+
+def test_list_follows_every_page_and_returns_all_items(tasks_api, monkeypatch, capsys):
+    # 2026-11-08: My Tasks held 32 tasks and only the first 20 reached the
+    # morning brief (nanoclaw-trusted#122).
+    tasks_api.response_pages = [
+        {"kind": "tasks#tasks", "items": [{"id": "t1"}, {"id": "t2"}], "nextPageToken": "p2"},
+        {"kind": "tasks#tasks", "items": [{"id": "t3"}], "nextPageToken": "p3"},
+        {"kind": "tasks#tasks", "items": [{"id": "t4"}]},
+    ]
+
+    rc = _run(monkeypatch, "list", {"tasklist_id": TASKLIST, "showCompleted": "false"})
+
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert [t["id"] for t in out["items"]] == ["t1", "t2", "t3", "t4"]
+    assert "nextPageToken" not in out
+    queries = [r["query"] for r in tasks_api.requests_seen]
+    assert queries == [
+        {"showCompleted": ["false"]},
+        {"showCompleted": ["false"], "pageToken": ["p2"]},
+        {"showCompleted": ["false"], "pageToken": ["p3"]},
+    ]
+
+
+def test_list_with_an_empty_collection_returns_empty_items(tasks_api, monkeypatch, capsys):
+    # Google omits `items` entirely for an empty list.
+    tasks_api.response_body = {"kind": "tasks#tasks"}
+
+    rc = _run(monkeypatch, "list", {"tasklist_id": TASKLIST})
+
+    assert rc == 0
+    assert json.loads(capsys.readouterr().out) == {"kind": "tasks#tasks", "items": []}
 
 
 def test_get_puts_both_ids_on_the_path(tasks_api, monkeypatch, capsys):

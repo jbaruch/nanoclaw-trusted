@@ -1,5 +1,9 @@
 # Changelog
 
+### Return every page from the Tasks list reads (#122)
+
+`google-tasks.py list` and `list-tasklists` returned only Google's first page (20 tasks by default) and never followed `nextPageToken`. On 2026-11-08 My Tasks held 32 tasks, so 12 never reached the morning brief, including an overdue one. Both list ops now follow `nextPageToken` and print one resource with all `items` and no token. The output shape is unchanged for lists that fit on one page.
+
 ## 0.1.125 — 2026-10-21
 
 ### Reuse the current Claude Code session for memory bootstrap (#117)

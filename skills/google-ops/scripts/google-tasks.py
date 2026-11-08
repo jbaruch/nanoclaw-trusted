@@ -25,6 +25,12 @@ this script prints the raw Tasks resource. `list-tasklists` and `list`
 put their array in top-level `items`; `get` returns the task resource
 itself.
 
+The list ops return every page: they follow `nextPageToken` until Google
+stops sending one and print one resource holding all `items`, with no
+`nextPageToken` left in it. Google returns 20 tasks per page by default,
+and a caller that read only the first page silently lost the rest
+(nanoclaw-trusted#122).
+
 The `successful: false` branch dies too. Composio reported an API-level
 failure (task not found, insufficient scope) as HTTP 200 with
 `successful: false` in the body, so callers had to test a field to notice.
@@ -118,6 +124,24 @@ def _endpoint(op, args):
     return f"lists/{tasklist}/tasks/{_quote(args.pop('task_id'))}"
 
 
+def _fetch(google_rest, method, path, args, *, paged):
+    """Call the endpoint; for a list op, follow `nextPageToken` and merge
+    every page's `items` into the first page's resource."""
+    url = google_rest.surface_url("tasks", path)
+    resource = google_rest.google_request(method, url, params=args or None)
+    if not paged:
+        return resource
+    items = resource.get("items", [])
+    while token := resource.get("nextPageToken"):
+        resource = google_rest.google_request(
+            method, url, params={**args, "pageToken": token}
+        )
+        items.extend(resource.get("items", []))
+    resource.pop("nextPageToken", None)
+    resource["items"] = items
+    return resource
+
+
 def main() -> int:
     if len(sys.argv) != 2 or sys.argv[1] not in OPS:
         sys.stderr.write(f"google-tasks: usage: google-tasks.py <{'|'.join(OPS)}> (args on stdin)\n")
@@ -148,12 +172,9 @@ def main() -> int:
         return 2
 
     path = _endpoint(op, args)
-    payload = {"params": args or None}
 
     try:
-        resource = google_rest.google_request(
-            method, google_rest.surface_url("tasks", path), **payload
-        )
+        resource = _fetch(google_rest, method, path, args, paged=op != "get")
     except google_rest.GatewayNotInjecting as e:
         sys.stderr.write(f"google-tasks: {op} unauthenticated — {e}\n")
         return 1
