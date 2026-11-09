@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.1.130 — 2026-11-09
+
 ### Abstracts go through cfp-abstract as one text (#124)
 
 `rules/humanize-outbound-prose.md` now covers a talk abstract or session description he rewrites or publishes, another speaker's included: run `tessl__cfp-abstract` before the blog-writer pass, keep the other speaker's facts and claims, and write one abstract text even when the form splits Summary and Description. On 2026-11-06 a PortCon abstract went through five versions without cfp-abstract and came back as Summary + Description.
