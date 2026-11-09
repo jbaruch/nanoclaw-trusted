@@ -34,7 +34,7 @@ Always-on rules are loaded into every turn's context. Conditional rules are load
 | [context-bootstrap-bg-agents](rules/context-bootstrap-bg-agents.md) | always-on | Background-agent prompts must include workspace context (paths, send-message tool, Telegram HTML formatting). |
 | [duplicate-prevention](rules/duplicate-prevention.md) | always-on | Before creating any resource, check if it exists. Duplicate found → update existing. |
 | [global-memory](rules/global-memory.md) | always-on | `/workspace/global/CLAUDE.md` for cross-group facts. Only update when explicitly asked. |
-| [humanize-outbound-prose](rules/humanize-outbound-prose.md) | conditional | Run `tessl__blog-writer`'s humanization pass on every email draft, or other prose sent under the operator's name, before posting it. |
+| [humanize-outbound-prose](rules/humanize-outbound-prose.md) | conditional | Run `tessl__blog-writer`'s humanization pass on every email draft, or other prose sent under the operator's name, before posting it; talk abstracts, other speakers' too, go through `tessl__cfp-abstract` first as one text. |
 | [identity-compaction-recovery](rules/identity-compaction-recovery.md) | always-on | After context compaction, re-read `/workspace/global/SOUL.md` — your persona context is gone. |
 | [pending-response-tracking](rules/pending-response-tracking.md) | always-on | Stamp `session-state.json` with `pending_response`, do the work, send, clear. Heartbeat picks up interrupted responses. |
 | [proactive-participation](rules/proactive-participation.md) | always-on | In trusted groups you're a participant — chime in when useful. Default-silence still applies; a reaction alone is complete participation. |
