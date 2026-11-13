@@ -22,7 +22,7 @@ SCRIPT_REL = "skills/trusted-memory/scripts/register-session.py"
 
 
 def _make_messages_db(path, session_id):
-    """Production shape of `sessions` per `rules/messages-db-schema.md`
+    """Production shape of `sessions` per `skills/system-status/references/messages-db-schema.md`
     (verified against the live host DB): keyed by
     (`group_folder`, `session_name`), one row per group session."""
     conn = sqlite3.connect(str(path))

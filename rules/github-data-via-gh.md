@@ -31,4 +31,4 @@ Sub-agents spawned via `Agent` run inside the same container and inherit `GITHUB
 
 ## Sibling Rules
 
-- The standalone `sqlite3` CLI is also absent from the container image (separate concept) — see the `messages-db-schema` rule for the `python3 -c 'import sqlite3'` path.
+- The standalone `sqlite3` CLI is also absent from the container image (separate concept) — see `skills/system-status/references/messages-db-schema.md` for the `python3 -c 'import sqlite3'` path.

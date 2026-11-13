@@ -11,6 +11,8 @@ Read-only counterpart to admin's `tessl__heartbeat`'s system-health probe. Trust
 
 ## Step 1 — Run the probe
 
+For direct `messages.db` queries or column references, first read `skills/system-status/references/messages-db-schema.md` in this installed plugin. It carries the table shapes, access constraints, and schema-drift contract; missing or unreadable content stops that action.
+
 ```bash
 python3 /home/node/.claude/skills/tessl__system-status/scripts/system-status-checks.py
 ```

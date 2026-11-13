@@ -8,7 +8,7 @@ Reads:
     - Session ID from `/workspace/store/messages.db` (`sessions` table,
       first row). Falls back to `None` when the table is empty.
       `sessions` is keyed by (`group_folder`, `session_name`) — see
-      `rules/messages-db-schema.md`; the single-row assumption behind
+      `skills/system-status/references/messages-db-schema.md`; the single-row assumption behind
       "first row" is documented at the query site below.
     - Session name from `$NANOCLAW_SESSION_NAME` (defaults to `default`).
     - Current bootstrap session ID from `session_identity.py`; the lookup
@@ -90,7 +90,7 @@ def read_session_id_from_db() -> Optional[str]:
         conn = sqlite3.connect(MESSAGES_DB, timeout=MESSAGES_DB_TIMEOUT_SECONDS)
         try:
             # `sessions` is keyed by (group_folder, session_name), one
-            # row per group session (rules/messages-db-schema.md). The
+            # row per group session (skills/system-status/references/messages-db-schema.md). The
             # host currently writes a single row — the main group's
             # session, which is the container this script runs in — so
             # a bare LIMIT 1 is deterministic today. If the host starts
