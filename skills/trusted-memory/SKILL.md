@@ -1,6 +1,6 @@
 ---
 name: trusted-memory
-description: Session bootstrap and rolling memory updates for trusted containers. On session start, restores context from the group's permanent memory, runbook, and recent daily and weekly logs. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences.
+description: Session bootstrap and rolling memory updates for trusted containers. On session start, restores context from the group's permanent memory, runbook, and recent daily and weekly logs. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences. Scheduled wakes skip bootstrap reads.
 ---
 
 # Trusted Memory
@@ -18,6 +18,8 @@ skills/trusted-memory/references/memory-store.md
 On-disk state shapes — `session-state.json` and the canonical `## Addresses` block — are in `skills/trusted-memory/state-schema.md`.
 
 ## Step 1 — Bootstrap the Session
+
+For scheduled-task prompts starting with the host prefix `[SCHEDULED TASK -`, skip the sentinel check and reads 1–6. Run only session registration in item 7, then finish here, silent; do not proceed to Step 4. The task skill reads any weekly logs, `highlights.md`, or cross-group daily memory it needs in its own steps. This guard applies only to Step 1; scheduled tasks may still use Steps 2 and 3 to save memory.
 
 The agent-runner's `session-start-auto-context` hook already injects MEMORY.md, RUNBOOK.md, and the most-recent daily log. Read them anyway when a step below names them; this step also covers what the hook does not — group-shared `trusted/` memory, weekly logs, `highlights.md` — plus the per-session sentinel and state stamping.
 
