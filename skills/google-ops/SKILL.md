@@ -8,6 +8,8 @@ user-invocable: false
 
 This skill is an action router — pick the step that matches the read you need and execute only that step. Do not run other steps; do not parallelize.
 
+Before verification reads, read `skills/google-ops/references/trusted-verification.md` in this installed plugin for source selection and tier restrictions. Missing or unreadable content stops verification. Read explicitly; never `@`-import it.
+
 Scripts mount at `/home/node/.claude/skills/tessl__google-ops/scripts/`. No Google credential lives in this container: the OneCLI gateway injects the `Authorization: Bearer` on the wire and refreshes it. Never send an `Authorization` header or read a Google key from the environment — a credential in the container is a bug, not a fallback.
 
 Each script is a black box per `coding-policy: script-as-black-box` — the endpoint, defaults, query encoding, and output shape live in its top-of-file docstring. `jbaruch/nanoclaw-admin` `rules/google-access.md` is the authority for op names and argument conventions; this skill does not restate them. Argument computation (time windows, timezone math, which tasklist) stays with the caller — it is reasoning, not a fixed transform.

@@ -123,7 +123,7 @@ def _query_recent_failures(
     domain and is NOT consulted here; trusted reports verbatim and
     the operator decides what to do (per the SKILL.md contract).
 
-    `task_run_logs` columns per `rules/messages-db-schema.md`:
+    `task_run_logs` columns per `skills/system-status/references/messages-db-schema.md`:
     `status` (`success` / `error` / `killed` / `precheck_skipped`),
     `error`, `result` — there is no `last_result` column. A failure is
     a run with status `error` or `killed`; the summary prefers `error`

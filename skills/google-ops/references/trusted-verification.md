@@ -1,8 +1,3 @@
----
-alwaysApply: false
-applyTo: "** — when answering substantive trusted-tier questions or producing claims that need verification"
----
-
 # Ground Truth — Trusted Extensions
 
 Extends the core ground-truth rule with verification methods available to trusted containers — native Google REST brokered by the OneCLI gateway for Google services (Calendar, Gmail, Tasks) and `gh` for GitHub.

@@ -38,7 +38,7 @@ OUTSIDE_24H = "2026-07-05T10:00:00.000Z"
 def _build_test_db(path) -> None:
     """Create a minimal `messages.db` with the production shape of the
     tables the probe queries (`task_run_logs` columns per
-    `rules/messages-db-schema.md` — verified against the live host DB).
+    `skills/system-status/references/messages-db-schema.md` — verified against the live host DB).
     Tests populate rows via `_insert_run_log` per scenario."""
     conn = sqlite3.connect(str(path))
     conn.executescript(

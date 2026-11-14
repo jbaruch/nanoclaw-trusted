@@ -4,36 +4,31 @@ alwaysApply: true
 
 # No Silent Deferrals
 
-## The rule
+## Concrete handoff
 
-**Defer is allowed only when there is a concrete handoff that will actually do the deferred work.** Otherwise it is a silent skip wearing paperwork — and silent skips on something the owner intended to act on are material harm, not noise.
-
-## What counts as a concrete handoff
-
-A defer is legitimate ONLY if it points to one of:
-
-1. **A `resumable-cycle` continuation** — capped, container-restarted, with the `HOUSEKEEPING-CAP-HIT` marker explicitly surfaced (skill name, cycle/continuation id, where execution stopped).
-2. **A separately scheduled task** — actually present in `list_tasks`, with a different cadence/budget than the deferring run (otherwise next run is the same skill under the same constraints — nothing changes).
-3. **An explicit message to the owner** describing what was skipped and asking how to proceed.
-
-If none exist, you are not deferring — you are skipping. Mark the work skipped and surface it.
+- Defer only with one of these handoffs:
+  1. A capped, container-restarted `resumable-cycle` continuation; surface `HOUSEKEEPING-CAP-HIT`, skill name, cycle/continuation ID, and stopping point.
+  2. A separate task present in `list_tasks`, with a different cadence/budget from this run.
+  3. An explicit message to the owner describing skipped work and asking how to proceed.
+- Without a handoff, mark work skipped and surface it.
 
 ## Forbidden patterns
 
-- "Deferred (lean-relevant default)" while writing `status: open` + `last_verified: today` — defer-marker and verified-state stamp can't both be true.
-- "Pragmatic skip — N MCP calls in the nightly path" with no concrete continuation pointing where those calls will happen.
-- "Next run's [filter / threshold / safety net] will catch this" when next run is the same skill with the same budget.
-- Setting `last_verified: <today>` for entries not actually verified this run, or `status: open` for new candidates that did not pass the relevance pass.
-- `bot_notes` claiming work was deferred when no concrete handoff exists.
+- Apply to every skill writing verification or completion state.
+- Never stamp unverified work with `last_verified`, `last_checked`, `_verified_this_run: true`, or completion fields.
+- Never set `status: open` for new candidates that have not passed relevance analysis.
+- Never combine a defer marker with a verified-state stamp.
+- Never claim deferral in `bot_notes` without a concrete handoff.
+- A call budget or the next run's unchanged filter, threshold, or safety net is not a handoff.
 
-## What to do instead
+## Incomplete work
 
-Do not stamp success fields (no `last_verified`, no `status: open` for unanalyzed entries, no `_verified_this_run: true`). Use the skill's documented incomplete-pass mechanism (e.g. a `*-pending.json` artifact with `_verify_skipped: true`, paired with a structured report to the caller). Surface the skip to the owner via `mcp__nanoclaw__send_message` in the same run — discovering a skip weeks later in a state file is the failure mode this rule prevents.
+- Use the skill's incomplete-pass mechanism, such as `*-pending.json` with `_verify_skipped: true` and a structured report to the caller.
+- Surface skips to the owner via `mcp__nanoclaw__send_message` in the same run.
 
-## Skip-summary file contract
+## Skip-summary file
 
-A skill that defers or skips writes a structured summary at `/workspace/group/.skip-summary-<tessl-skill-id>.json`, where `<tessl-skill-id>` is the full `tessl__<name>` identifier. One file per skill — concurrent skips don't collide. The surfacer reads, sends via `mcp__nanoclaw__send_message`, and deletes. Owner skill writes; surfacer reads-sends-deletes — the file's existence is the deterministic signal across the call boundary, so prose enforcement of "remember to surface" can't slip under context pressure. Schema, field reference, lifecycle, pre-publish lint: `docs/skip-summary-schema.md`.
-
-## Applies to
-
-Every skill that writes state with verification or completion fields. The rule is general: any "verified at" / "status: complete" / "last_checked" field is a claim of work done, forbidden when the work wasn't.
+- A deferring or skipping skill writes `/workspace/group/.skip-summary-<tessl-skill-id>.json`.
+- Use the full `tessl__<name>` identifier; keep one file per skill.
+- Owner skill writes; surfacer reads, sends via `mcp__nanoclaw__send_message`, and deletes.
+- Schema, fields, lifecycle, and pre-publish lint: `skills/trusted-memory/references/skip-summary-schema.md`.
