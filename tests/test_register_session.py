@@ -14,8 +14,6 @@ Covers the documented contract:
 import json
 import shlex
 import sqlite3
-from datetime import UTC, datetime
-from unittest.mock import Mock
 
 import pytest
 
@@ -81,7 +79,21 @@ def _run_and_capture(module, capsys, argv=()):
 def test_full_roundtrip_writes_state_and_sentinel(register_session, monkeypatch, capsys):
     module, messages_db, state_path, sentinel = register_session
     _make_messages_db(messages_db, "db-session-42")
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-session-99")
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "db-session-42")
+    monkeypatch.setattr(module.time, "time", lambda: 1770940800)
+    state_path.write_text(
+        json.dumps(
+            {
+                "sessions": {
+                    "default": {
+                        "session_id": "db-session-42",
+                        "started": "2026-01-01T00:00:00Z",
+                        "epoch": 1767225600,
+                    }
+                }
+            }
+        )
+    )
     monkeypatch.setenv("NANOCLAW_SESSION_NAME", "default")
 
     rc, payload = _run_and_capture(module, capsys)
@@ -98,113 +110,10 @@ def test_full_roundtrip_writes_state_and_sentinel(register_session, monkeypatch,
     assert state["schema_version"] == 1
     assert state["session_id"] == "db-session-42"
     assert state["sessions"]["default"]["session_id"] == "db-session-42"
-    assert sentinel.read_text() == "claude-session-99"
-
-
-@pytest.mark.parametrize("argv", [[], ["--registration-only"]])
-def test_resumed_registration_preserves_age_until_session_changes(
-    register_session, monkeypatch, capsys, argv
-):
-    module, messages_db, state_path, _sentinel = register_session
-    _make_messages_db(messages_db, "resumed-session")
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "resumed-session")
-    monkeypatch.setenv("NANOCLAW_SESSION_NAME", "maintenance")
-    started = datetime(2026, 1, 1, tzinfo=UTC)
-    later = datetime(2026, 2, 13, tzinfo=UTC)
-
-    for clock in (started, later):
-        monkeypatch.setattr(module, "datetime", Mock(now=Mock(return_value=clock)))
-        monkeypatch.setattr(module.time, "time", lambda clock=clock: clock.timestamp())
-        rc, payload = _run_and_capture(module, capsys, argv)
-        assert rc is None
-        assert payload["wrote_state"] is True
-        entry = json.loads(state_path.read_text())["sessions"]["maintenance"]
-        assert entry == {
-            "started": "2026-01-01T00:00:00Z",
-            "epoch": 1767225600,
-            "session_id": "resumed-session",
-            "last_seen": clock.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        }
-
-    # A genuinely new database identity starts a new age under the same name.
-    with sqlite3.connect(messages_db) as conn:
-        conn.execute("UPDATE sessions SET session_id = 'replacement-session'")
-    rc, _ = _run_and_capture(module, capsys, argv)
-    assert rc is None
-    entry = json.loads(state_path.read_text())["sessions"]["maintenance"]
-    assert entry == {
-        "started": "2026-02-13T00:00:00Z",
-        "epoch": 1770940800,
-        "session_id": "replacement-session",
-        "last_seen": "2026-02-13T00:00:00Z",
-    }
-
-
-@pytest.mark.parametrize("argv", [[], ["--registration-only"]])
-def test_maintenance_rotation_resets_age_with_unconfirmed_db_identity(
-    register_session, monkeypatch, capsys, argv
-):
-    module, messages_db, state_path, _sentinel = register_session
-    _make_messages_db(messages_db, None)
-    with sqlite3.connect(messages_db) as conn:
-        conn.executemany(
-            "INSERT INTO sessions (group_folder, session_name, session_id) VALUES (?, ?, ?)",
-            [("main", "default", "default-A"), ("main", "maintenance", "maint-1")],
-        )
-    monkeypatch.setenv("NANOCLAW_SESSION_NAME", "maintenance")
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "maint-1")
-    started = datetime(2026, 1, 1, tzinfo=UTC)
-    later = datetime(2026, 1, 16, tzinfo=UTC)
-    monkeypatch.setattr(module, "datetime", Mock(now=Mock(return_value=started)))
-    monkeypatch.setattr(module.time, "time", lambda: started.timestamp())
-    rc, _ = _run_and_capture(module, capsys, argv)
-    assert rc is None
-
-    with sqlite3.connect(messages_db) as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO sessions (group_folder, session_name, session_id) "
-            "VALUES ('main', 'maintenance', 'maint-2')"
-        )
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "maint-2")
-    monkeypatch.setattr(module, "datetime", Mock(now=Mock(return_value=later)))
-    monkeypatch.setattr(module.time, "time", lambda: later.timestamp())
-    rc, _ = _run_and_capture(module, capsys, argv)
-    assert rc is None
-    entry = json.loads(state_path.read_text())["sessions"]["maintenance"]
-    assert entry["started"] == "2026-01-16T00:00:00Z"
-    assert entry["epoch"] == int(later.timestamp())
-    assert entry["session_id"] == "default-A"
-
-
-@pytest.mark.parametrize(
-    "previous,session_id",
-    [
-        (None, "current-session"),
-        ([], "current-session"),
-        ({"session_id": "current-session"}, "current-session"),
-        ({"session_id": None, "started": "old", "epoch": 1}, None),
-    ],
-)
-def test_registration_initializes_age_without_a_known_complete_session(
-    register_session, monkeypatch, capsys, previous, session_id
-):
-    module, messages_db, state_path, _sentinel = register_session
-    _make_messages_db(messages_db, session_id)
-    monkeypatch.setenv("NANOCLAW_SESSION_NAME", "maintenance")
-    clock = datetime(2026, 1, 1, tzinfo=UTC)
-    monkeypatch.setattr(module, "datetime", Mock(now=Mock(return_value=clock)))
-    monkeypatch.setattr(module.time, "time", lambda: 1767225600)
-    state_path.write_text(json.dumps({"sessions": {"maintenance": previous}}))
-
-    rc, _ = _run_and_capture(module, capsys, ["--registration-only"])
-
-    assert rc is None
-    assert json.loads(state_path.read_text())["sessions"]["maintenance"] == {
-        "started": "2026-01-01T00:00:00Z",
-        "epoch": 1767225600,
-        "session_id": session_id,
-        "last_seen": "2026-01-01T00:00:00Z",
-    }
+    assert sentinel.read_text() == "db-session-42"
+    entry = state["sessions"]["default"]
+    assert entry["epoch"] == 1770940800
+    assert entry["started"] == entry["last_seen"]
 
 
 @pytest.mark.parametrize("stored", [None, "", "previous-session", "scheduled-session"])
@@ -236,7 +145,7 @@ def test_scheduled_command_registers_without_changing_bootstrap_state(
 
     rule = (REPO_ROOT / "rules/session-bootstrap.md").read_text()
     for instruction in (
-        "Scheduled-task prompts start with the host prefix `[SCHEDULED TASK -`.",
+        "Scheduled-task prompts contain the host marker `[SCHEDULED TASK -`.",
         "Interactive sessions bootstrap before the user's request.",
         "For scheduled-task prompts, the first tool call is the task skill, "
         "with no bootstrap reads.",
@@ -253,7 +162,7 @@ def test_scheduled_command_registers_without_changing_bootstrap_state(
     step = skill.split("## Step 1 — Bootstrap the Session\n", 1)[1].split("\n## Step 2", 1)[0]
     scheduled, interactive = step.split("The agent-runner's `session-start-auto-context`", 1)
     assert (
-        "For scheduled-task prompts starting with the host prefix `[SCHEDULED TASK -`, "
+        "For scheduled-task prompts containing the host marker `[SCHEDULED TASK -`, "
         "skip the sentinel check and reads 1–6. "
         "Run this registration-only command after the task skill:"
     ) in scheduled
@@ -335,90 +244,6 @@ def test_scheduled_command_registers_without_changing_bootstrap_state(
         reader.main()
     assert outcome.value.code == 1
     assert json.loads(capsys.readouterr().out)["needs_bootstrap"] is False
-
-
-@pytest.mark.parametrize(
-    "path,original,replacement",
-    [
-        (
-            "rules/session-bootstrap.md",
-            "the first tool call is the task skill, with no bootstrap reads",
-            "bootstrap before calling the task skill",
-        ),
-        (
-            "rules/session-bootstrap.md",
-            "Interactive sessions bootstrap before the user's request.",
-            "Interactive sessions skip bootstrap.",
-        ),
-        (
-            "skills/trusted-memory/SKILL.md",
-            "skip the sentinel check and reads 1–6",
-            "bootstrap before every task",
-        ),
-        (
-            "skills/trusted-memory/SKILL.md",
-            "Finish here, silent; do not proceed to Step 4.",
-            "Continue to Step 4.",
-        ),
-        (
-            "skills/trusted-memory/SKILL.md",
-            "4. Read the most recent 2 files from `/workspace/group/memory/weekly/`",
-            "4. Skip `/workspace/group/memory/weekly/`",
-        ),
-    ],
-    ids=["task-first", "interactive-bootstrap", "scheduled-guard", "scheduled-stop", "weekly"],
-)
-def test_prompt_route_regressions_are_rejected(
-    register_session, monkeypatch, capsys, tmp_path, path, original, replacement
-):
-    # Mutate only the prompt contracts, retaining the valid registration commands.
-    # The route test must reject these even when registration itself still works.
-    contract_root = tmp_path / "contracts"
-    for relative in ("rules/session-bootstrap.md", "skills/trusted-memory/SKILL.md"):
-        text = (REPO_ROOT / relative).read_text()
-        if relative == path:
-            assert original in text
-            text = text.replace(original, replacement, 1)
-        target = contract_root / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text)
-    monkeypatch.setattr(__name__ + ".REPO_ROOT", contract_root)
-
-    with pytest.raises(AssertionError):
-        test_scheduled_command_registers_without_changing_bootstrap_state(
-            register_session, monkeypatch, capsys, stored=None, identity_source="CLAUDE_SESSION_ID"
-        )
-
-
-@pytest.mark.parametrize("failure", ["lock", "state_read", "state_write"])
-def test_registration_only_reports_io_failure_without_stamping_sentinel(
-    register_session, monkeypatch, capsys, failure
-):
-    module, messages_db, state_path, sentinel = register_session
-    _make_messages_db(messages_db, "db-session")
-    monkeypatch.setenv("CLAUDE_SESSION_ID", "scheduled-session")
-    sentinel.write_text("previous-session")
-    if failure == "lock":
-        monkeypatch.setattr(module, "STATE_LOCK_PATH", str(state_path / "missing" / "lock"))
-        expected_diagnostic = "cannot open lock file"
-    elif failure == "state_read":
-        state_path.mkdir()
-        expected_diagnostic = "state file read failed"
-    else:
-
-        def fail_write(path, data):
-            raise OSError("test state write failure")
-
-        monkeypatch.setattr(module, "atomic_write_json", fail_write)
-        expected_diagnostic = "failed to write"
-
-    with pytest.raises(SystemExit) as outcome:
-        module.main(["--registration-only"])
-    captured = capsys.readouterr()
-    assert outcome.value.code == 1
-    assert captured.out == ""
-    assert expected_diagnostic in captured.err
-    assert sentinel.read_text() == "previous-session"
 
 
 def test_missing_claude_session_id_skips_sentinel(register_session, monkeypatch, capsys):

@@ -21,10 +21,7 @@ Writes (both atomically, tempfile + fsync + os.replace):
     - `/workspace/group/session-state.json` — updates
       `sessions.<session_name>` with `{started, epoch, session_id,
       last_seen}` and mirrors `session_id` at the top level for
-      back-compat. Preserves started/epoch only when the non-null DB
-      session_id matches both the stored sessions.<name>.session_id and
-      the resolved runtime identity. A changed, unconfirmed or unavailable
-      identity starts a new age; missing start fields are filled at registration.
+      back-compat.
     - `/tmp/session_bootstrapped` — sentinel containing the current
       resolved Claude session ID so `needs-bootstrap.py` reports "done" on
       subsequent runs. Left untouched with --registration-only. NOT written
@@ -200,17 +197,9 @@ def main(argv: Optional[list[str]] = None) -> None:
                 )
             state["sessions"] = {}
         now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        previous = state["sessions"].get(session_name)
-        if (
-            not isinstance(previous, dict)
-            or session_id is None
-            or previous.get("session_id") != session_id
-            or session_id != claude_session_id
-        ):
-            previous = {}
         state["sessions"][session_name] = {
-            "started": previous.get("started", now_iso),
-            "epoch": previous.get("epoch", int(time.time())),
+            "started": now_iso,
+            "epoch": int(time.time()),
             "session_id": session_id,
             "last_seen": now_iso,
         }

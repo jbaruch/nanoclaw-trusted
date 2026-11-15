@@ -6,7 +6,7 @@ alwaysApply: true
 
 ## When
 
-- Scheduled-task prompts start with the host prefix `[SCHEDULED TASK -`.
+- Scheduled-task prompts contain the host marker `[SCHEDULED TASK -`.
 - Interactive sessions bootstrap before the user's request.
 
 ## Action

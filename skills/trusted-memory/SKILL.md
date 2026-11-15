@@ -1,6 +1,6 @@
 ---
 name: trusted-memory
-description: Session bootstrap and rolling memory updates for trusted containers. On session start, restores context from the group's permanent memory, runbook, and recent daily and weekly logs. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences. Scheduled wakes skip bootstrap reads.
+description: Session bootstrap and rolling memory updates for trusted containers. On session start, restores context from the group's permanent memory, runbook, and recent daily and weekly logs. After non-trivial interactions, appends timestamped entries to group-local and cross-group shared daily logs. Use when starting a new session to load previous notes and remember context, or after meaningful conversations to save conversation history, persist session state, or record newly learned owner preferences.
 ---
 
 # Trusted Memory
@@ -19,7 +19,7 @@ On-disk state shapes — `session-state.json` and the canonical `## Addresses` b
 
 ## Step 1 — Bootstrap the Session
 
-For scheduled-task prompts starting with the host prefix `[SCHEDULED TASK -`, skip the sentinel check and reads 1–6. Run this registration-only command after the task skill:
+For scheduled-task prompts containing the host marker `[SCHEDULED TASK -`, skip the sentinel check and reads 1–6. Run this registration-only command after the task skill:
 
 ```bash
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py --registration-only

@@ -37,8 +37,6 @@ Mutable JSON object. Per-group, not shared across containers.
 | `seen_email_ids` | `tessl__check-email`, `tessl__heartbeat`, `tessl__morning-brief`, `tessl__nightly` (all `maintenance`) | `tessl__check-email` for de-dup | Append-only within a window |
 | `muted_threads` | `default` session | `default` + `maintenance` | Per-thread mute map |
 
-Registration preserves `started` and `epoch` only when the non-null DB `session_id` matches both the stored `sessions.<name>.session_id` and the resolved runtime identity; it refreshes `last_seen`. A changed, unconfirmed or unavailable identity starts a new age; missing start fields are filled at registration.
-
 **Back-compat note (legacy migration, ex–`reference_session-state-migration.md`):** the top-level `session_id` field is the pre-`PR jbaruch/nanoclaw#55` shape, when only one session existed per group. It is still written so readers that haven't moved to the per-session subtree continue to work. New readers SHOULD use `sessions.<name>.session_id`. Old single-session files are accepted on read — register-session.py adds the `sessions` subtree without dropping the top-level field, so the migration is in-place and idempotent.
 
 **Other writers on this file** must take `fcntl.LOCK_EX` on `/workspace/group/session-state.json.lock` for the duration of their read-modify-write cycle. Current participants: `jbaruch/nanoclaw-admin: tessl__heartbeat` (writes `last_seen`, clears stale `pending_response`) and `jbaruch/nanoclaw-admin: tessl__check-email` (writes `seen_email_ids`, `pending_response`, `muted_threads`). Without the shared lock, concurrent updates clobber each other.
