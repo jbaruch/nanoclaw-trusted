@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.132 — 2026-11-15
+
+- fix(trusted-memory): skip the bootstrap on scheduled wakes (#130)
+
 ## 0.1.131 — 2026-11-15
 
 - chore: refresh the Tessl-generated ignore block (#131)
