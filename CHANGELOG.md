@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.131 — 2026-11-15
+
+- chore: refresh the Tessl-generated ignore block (#131)
+
 ## 0.1.130 — 2026-11-09
 
 ### Abstracts go through cfp-abstract as one text (#124)
