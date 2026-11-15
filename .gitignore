@@ -30,18 +30,24 @@ Thumbs.db
 .mcp.json
 .claude/settings.json
 .claude/skills/tessl__*
+.claude/skills/.gitignore
 .codex/config.toml
 .codex/skills/tessl__*
+.codex/skills/.gitignore
 .gemini/settings.json
 .cursor/mcp.json
 .cursor/hooks.json
 .cursor/rules/tessl__*
+.cursor/rules/.gitignore
 .cursor/skills/tessl__*
+.cursor/skills/.gitignore
 .openhands/hooks.json
 .openhands/skills/tessl-*
 .github/mcp.json
 .github/hooks/tessl.json
 .github/skills/tessl__*
+.github/skills/.gitignore
 .vscode/mcp.json
 .vscode/skills/tessl__*
+.vscode/skills/.gitignore
 # === end Tessl-generated artifacts ===
