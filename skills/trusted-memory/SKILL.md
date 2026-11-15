@@ -19,6 +19,14 @@ On-disk state shapes — `session-state.json` and the canonical `## Addresses` b
 
 ## Step 1 — Bootstrap the Session
 
+For scheduled-task prompts containing the host marker `[SCHEDULED TASK -`, skip the sentinel check and reads 1–6. Run this registration-only command after the task skill:
+
+```bash
+python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py --registration-only
+```
+
+This writes session metadata and leaves the sentinel untouched, emitting `wrote_sentinel: false`. Finish here, silent; do not proceed to Step 4. The task skill reads any weekly logs, `highlights.md`, or cross-group daily memory it needs in its own steps. This guard applies only to Step 1; scheduled tasks may still use Steps 2 and 3 to save memory.
+
 The agent-runner's `session-start-auto-context` hook already injects MEMORY.md, RUNBOOK.md, and the most-recent daily log. Read them anyway when a step below names them; this step also covers what the hook does not — group-shared `trusted/` memory, weekly logs, `highlights.md` — plus the per-session sentinel and state stamping.
 
 First, check if bootstrap is needed. The sentinel is keyed to the current session ID, so a new session in the same container still triggers bootstrap:
@@ -45,16 +53,16 @@ If bootstrap IS needed → run these reads in order:
 python3 /home/node/.claude/skills/tessl__trusted-memory/scripts/register-session.py
 ```
 
-One invocation writes both the session-state entry and the bootstrap sentinel — inputs, environment variables, and write behaviour are in the script's docstring; the on-disk shapes are in `state-schema.md`. Emits single-line JSON `{"session_id", "session_name", "schema_version", "wrote_state", "wrote_sentinel"}`.
+The interactive invocation writes both the session-state entry and the bootstrap sentinel — inputs, environment variables, and write behaviour are in the script's docstring; the on-disk shapes are in `state-schema.md`. Emits single-line JSON `{"session_id", "session_name", "schema_version", "wrote_state", "wrote_sentinel"}`.
 
-Flow-relevant: a run that writes the state but not the sentinel re-bootstraps next session. That is safe — the reads above are idempotent — so treat a `wrote_sentinel: false` as noted, not as a failure to retry.
+Treat `wrote_sentinel: false` as noted, not as a failure to retry. Interactive bootstrap remains required unless an existing sentinel matches the current identity.
 
 Total context budget for memory: ~3000 tokens. Summarize large files before loading.
 
 **Error handling.**
 
 - **Missing files**: Skip silently and continue. Do not treat absence as an error.
-- **Missing `session-state.json`**: Treat as a fresh session — proceed through all the reads; read 7 creates the file.
+- **Missing `session-state.json`**: During interactive bootstrap, treat as a fresh session — proceed through all the reads; read 7 creates the file.
 - **Corrupt or unreadable `session-state.json`**: Treat as missing — overwrite with the current session ID after completing bootstrap.
 - **Missing or empty daily/weekly directories**: Skip those reads and proceed. Note in the first rolling memory update that this is a new memory store.
 

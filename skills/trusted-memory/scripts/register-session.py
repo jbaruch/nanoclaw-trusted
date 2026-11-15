@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Write session metadata into session-state.json and mark bootstrap done.
+"""Write session metadata and optionally mark a completed bootstrap.
 
 Usage:
-    register-session.py
+    register-session.py [--registration-only]
+
+Scheduled wakes pass --registration-only after the task skill. This updates
+session metadata without reading or writing the bootstrap sentinel.
 
 Reads:
     - Session ID from `/workspace/store/messages.db` (`sessions` table,
@@ -21,14 +24,17 @@ Writes (both atomically, tempfile + fsync + os.replace):
       back-compat.
     - `/tmp/session_bootstrapped` — sentinel containing the current
       resolved Claude session ID so `needs-bootstrap.py` reports "done" on
-      subsequent runs. NOT written when both identity variables are missing
+      subsequent runs. Left untouched with --registration-only. NOT written
+      when both identity variables are missing
       or empty — an empty sentinel would match an empty env on the
       next run and cause bootstrap to be skipped forever.
 
 Exit codes:
     0 — success (state written; sentinel skipped is still success
-        when the resolved identity is empty, with a stderr note)
+        with --registration-only, or when the resolved identity is empty
+        with a stderr note)
     1 — state file read/write failure
+    2 — invalid command-line arguments
 
 Note on sqlite behavior: the previous inline block would have raised
 on a missing messages.db or missing `sessions` table. This script
@@ -45,6 +51,7 @@ writers on this file must take the same lock; without coordination
 a concurrent update can clobber this script's `sessions.<name>`
 write.
 """
+import argparse
 import fcntl
 import json
 import os
@@ -120,7 +127,14 @@ def atomic_write_json(path: str, data: dict) -> None:
     write_atomic(Path(path), json.dumps(data, indent=2))
 
 
-def main() -> None:
+def main(argv: Optional[list[str]] = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--registration-only",
+        action="store_true",
+        help="Update session metadata without marking bootstrap complete",
+    )
+    args = parser.parse_args(argv)
     session_id = read_session_id_from_db()
     session_name = os.environ.get("NANOCLAW_SESSION_NAME", "default")
     claude_session_id = current_session_id()
@@ -205,6 +219,10 @@ def main() -> None:
     finally:
         # Closing the fd releases the flock; no explicit LOCK_UN needed.
         lock_f.close()
+
+    if args.registration_only:
+        emit_status(session_id, session_name, wrote_sentinel=False)
+        return
 
     # Both callers use one resolver. Missing identity must leave bootstrap
     # required instead of stamping an empty sentinel that could match forever.
