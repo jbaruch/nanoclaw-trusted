@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — after context compaction or when persona context is missing"
 ---
 
 # Identity — Compaction Recovery

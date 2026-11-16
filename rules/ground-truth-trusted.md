@@ -5,45 +5,28 @@ applyTo: "** — when answering substantive trusted-tier questions or producing 
 
 # Ground Truth — Trusted Extensions
 
-Extends the core ground-truth rule with verification methods available to trusted containers — native Google REST brokered by the OneCLI gateway for Google services (Calendar, Gmail, Tasks) and `gh` for GitHub.
+## Verification sources
 
-## Additional verification sources
+- Calendar events: `google-calendar.py events-list`; tasks: `google-tasks.py list`/`get`.
+- Invoke `Skill(skill: "google-ops")` or run scripts at `/home/node/.claude/skills/tessl__google-ops/scripts/<script>.py`.
+- Email: use sanitizing Gmail-fetch skills. `jbaruch/nanoclaw-admin` `rules/google-access.md` owns op names, arguments, and the Gmail exception.
+- GitHub: use authenticated `gh` per `github-data-via-gh`.
 
-| Claim type | How to verify |
-|------------|--------------|
-| Calendar event | `google-calendar.py events-list` |
-| Task/todo status | `google-tasks.py list` / `get` |
-| Email content | The sanitizing Gmail-fetch skills — see `google-access.md` "Exception — sanitizing Gmail-fetch skills" |
-| GitHub PR/issue | `gh` — see the `github-data-via-gh` rule |
+## Google boundaries
 
-Calendar/Tasks op scripts mount at `/home/node/.claude/skills/tessl__google-ops/scripts/<script>.py` (the `google-ops` skill in this tile). Invoke them via `Skill(skill: "google-ops")` or directly at that path. Gmail verification is the separate sanitizing Gmail-fetch path — see the Email row. `jbaruch/nanoclaw-admin` `rules/google-access.md` is the authority for op names, arg conventions, and the Gmail-fetch exception — this rule does not restate them.
+- The OneCLI gateway injects and refreshes authorization; no Google credential belongs in the container.
+- Never read Google keys from the environment or send an `Authorization` header; a container credential is a bug, never a fallback.
+- Calendar/Tasks scripts ship on main and trusted without admin co-loading. Trusted access is read-only: Calendar `events-list`; Tasks `list-tasklists`/`list`/`get`.
+- Sanitizing Gmail-fetch ships in admin, baseline on main only. Trusted non-main has no email-verification path; report email claims as unverified, never raw-fetch.
+- On `access_restricted`, report the claim unverified; do not assert it or try another route.
 
-## Google via the gateway
+## GitHub and sub-agents
 
-- No Google credential exists in the container; the gateway injects and refreshes the `Authorization: Bearer` on the wire.
-- Never read a Google key from the environment or send an `Authorization` header yourself. A credential in the container is a bug, not a fallback.
-- The Calendar/Tasks op scripts ship in this tile's `google-ops` skill — baseline on **main and trusted** (`selectTiles`, `jbaruch/nanoclaw` `src/container-runner.ts`), so a trusted container has them natively with no `containerConfig` co-load (`jbaruch/nanoclaw-admin#456`). The trusted surface is read-only: `google-calendar.py events-list` and `google-tasks.py list-tasklists`/`list`/`get`.
-- Email content is the exception: the sanitizing Gmail-fetch skills ship only in `nanoclaw-admin` (baseline on **main** only). A trusted non-main container has no email-verification path — report an email claim as unverified there rather than reaching for a raw fetch.
-- A call refused `access_restricted` (untrusted tier, gated by design): this container has no Google verification path. Report the claim as unverified — do not assert it, do not reach for another route.
-
-## GitHub: `gh`-first, no non-existence claims on unauth 404
-
-GitHub state — PRs, issues, repo contents, search results — comes from the authenticated `gh` CLI inside the container. For the full rationale and command shapes, see the `github-data-via-gh` rule.
-
-A 404 from `curl https://api.github.com/...` proves "I cannot see this from this path", **not** that the resource does not exist. Owner-adjacent repos (`jbaruch/*`, `ligolnik/*`, `tessl-io/*`) may be private to the unauthenticated caller. Re-run the query through `gh` before asserting non-existence — and especially before retracting a prior statement about something existing on the strength of a 404.
-
-**Sub-agent note:** Sub-agents spawned via `Agent` run inside the same container, inherit `GITHUB_TOKEN` from the env, and see the same script mounts, so both `gh` and the Google op scripts work inside them.
+- An unauthenticated 404 proves only lack of visibility. Recheck through authenticated `gh` before asserting non-existence or retracting an existence claim.
+- `Agent` sub-agents share the container, `GITHUB_TOKEN` and script mounts; `gh` and Google scripts work there.
 
 ## Compute with external data
 
-When a task requires external data, chain tools to compute the exact answer.
-
-**Example:** "Remind me 15 minutes before I leave for Amir's pickup."
-
-| Approach | Verdict |
-|---|---|
-| Ask "when do you leave?" | Wrong — you can compute it |
-| Set it 15 min before the event start | Wrong — departure ≠ event start |
-| Check calendar for destination → Maps for travel time → calculate real departure → set 15 min before | Correct |
-
-These sources are not available in untrusted containers. The core ground-truth rule covers universal verification methods.
+- Chain tools to compute answers; do not ask for computable inputs.
+- For departure reminders, use Calendar destination and Maps travel time to compute departure; subtract the reminder offset from departure, not event start.
+- These sources are unavailable in untrusted containers; core ground-truth covers universal verification.

@@ -11,6 +11,8 @@ Read-only counterpart to admin's `tessl__heartbeat`'s system-health probe. Trust
 
 ## Step 1 — Run the probe
 
+For direct `messages.db` queries or column references, first read `/home/node/.claude/skills/tessl__system-status/references/messages-db-schema.md` in this installed plugin. It carries table shapes and reader fields; `rules/messages-db-schema.md` owns query, mutation, and schema-drift requirements.
+
 ```bash
 python3 /home/node/.claude/skills/tessl__system-status/scripts/system-status-checks.py
 ```
@@ -24,7 +26,7 @@ Parse the JSON.
 - `alerts` is empty → silent success. **Output nothing.**
 - `alerts` is non-empty → report via `mcp__nanoclaw__send_message`. Include the items the alert refers to: `stuck_tasks` IDs + prompt previews, `recent_failures` task IDs + error summaries, the offending row counts or DB size.
 
-The DB is read-only from the trusted container — auto-fix is not possible. The orchestrator's scheduler retries stuck tasks on the next poll; if alerts persist across cycles, flag for the operator.
+This skill is read-only and must not auto-fix the database. The orchestrator's scheduler retries stuck tasks on the next poll; if alerts persist across cycles, flag for the operator.
 
 ## What this skill is NOT
 

@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — when launching a background Agent, including prompts supplied by a skill"
 ---
 
 # Context Bootstrap for Background Agents

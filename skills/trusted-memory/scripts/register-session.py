@@ -8,12 +8,13 @@ Scheduled wakes pass --registration-only after the task skill. This updates
 session metadata without reading or writing the bootstrap sentinel.
 
 Reads:
-    - Session ID from `/workspace/store/messages.db` (`sessions` table,
-      first row). Falls back to `None` when the table is empty.
+    - Session ID from `/workspace/store/messages.db`, opened read-only.
       `sessions` is keyed by (`group_folder`, `session_name`) — see
-      `rules/messages-db-schema.md`; the single-row assumption behind
-      "first row" is documented at the query site below.
-    - Session name from `$NANOCLAW_SESSION_NAME` (defaults to `default`).
+      `/home/node/.claude/skills/tessl__system-status/references/messages-db-schema.md`.
+    - `$NANOCLAW_GROUP_FOLDER` and `$NANOCLAW_SESSION_NAME` must both be
+      nonempty for the database lookup. Missing identity, no matching row,
+      or SQLite errors yield `None` with an actionable stderr diagnostic.
+      The output state entry defaults to `default` if the session name is unset.
     - Current bootstrap session ID from `session_identity.py`; the lookup
       contract is in `state-schema.md`.
 
@@ -36,14 +37,10 @@ Exit codes:
     1 — state file read/write failure
     2 — invalid command-line arguments
 
-Note on sqlite behavior: the previous inline block would have raised
-on a missing messages.db or missing `sessions` table. This script
-intentionally catches `sqlite3.Error` broadly and treats it as
-`session_id=None` with a stderr note — a deliberate relaxation,
-not a behavior-preserving port, because bootstrap shouldn't hard-
-crash the whole memory-load flow when the DB is temporarily
-unreadable (locked, early-boot, etc.). The back-compat mirror still
-records `None`, which downstream consumers tolerate.
+Database lookup failure does not abort memory bootstrap. State and the
+back-compat mirror record `None`; successful writes and the sentinel
+confirm bootstrap completion, not database availability. Never create or
+repair the runtime-owned database here.
 
 Concurrency: state-file writes use an fcntl.LOCK_EX on
 `<STATE_PATH>.lock` around the read-modify-write cycle. Other
@@ -93,26 +90,42 @@ STATE_SCHEMA_VERSION = 1
 
 
 def read_session_id_from_db() -> Optional[str]:
+    group_folder = os.environ.get("NANOCLAW_GROUP_FOLDER")
+    session_name = os.environ.get("NANOCLAW_SESSION_NAME")
+    if not group_folder or not session_name:
+        print(
+            "register-session: session_id unavailable; NANOCLAW_GROUP_FOLDER and "
+            "NANOCLAW_SESSION_NAME must both be nonempty. Run through the host runtime "
+            "so it supplies the group and session identity.",
+            file=sys.stderr,
+        )
+        return None
     try:
-        conn = sqlite3.connect(MESSAGES_DB, timeout=MESSAGES_DB_TIMEOUT_SECONDS)
+        conn = sqlite3.connect(
+            Path(MESSAGES_DB).resolve().as_uri() + "?mode=ro",
+            uri=True,
+            timeout=MESSAGES_DB_TIMEOUT_SECONDS,
+        )
         try:
-            # `sessions` is keyed by (group_folder, session_name), one
-            # row per group session (rules/messages-db-schema.md). The
-            # host currently writes a single row — the main group's
-            # session, which is the container this script runs in — so
-            # a bare LIMIT 1 is deterministic today. If the host starts
-            # registering sessions for other groups, this query must
-            # gain a WHERE on this container's group_folder; there is
-            # no container-side way to derive that folder name yet.
             row = conn.execute(
-                "SELECT session_id FROM sessions LIMIT 1"
+                "SELECT session_id FROM sessions WHERE group_folder = ? AND session_name = ?",
+                (group_folder, session_name),
             ).fetchone()
         finally:
             conn.close()
-        return row[0] if row else None
+        if row:
+            return row[0]
+        print(
+            f"register-session: session_id unavailable for group {group_folder!r}, "
+            f"session {session_name!r} in {MESSAGES_DB}. "
+            "Check the host sessions registration for this identity.",
+            file=sys.stderr,
+        )
+        return None
     except sqlite3.Error as e:
         print(
-            f"register-session: cannot read session_id from {MESSAGES_DB}: {e}",
+            f"register-session: session_id unavailable from {MESSAGES_DB}: {e}. "
+            "Check the host messages.db mount and sessions schema; do not create a replacement.",
             file=sys.stderr,
         )
         return None

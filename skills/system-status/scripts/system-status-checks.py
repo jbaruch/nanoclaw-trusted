@@ -74,9 +74,11 @@ Exit codes:
 import argparse
 import json
 import os
+import shlex
 import sqlite3
 import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 
 def _now_iso() -> str:
@@ -123,7 +125,7 @@ def _query_recent_failures(
     domain and is NOT consulted here; trusted reports verbatim and
     the operator decides what to do (per the SKILL.md contract).
 
-    `task_run_logs` columns per `rules/messages-db-schema.md`:
+    `task_run_logs` columns per `/home/node/.claude/skills/tessl__system-status/references/messages-db-schema.md`:
     `status` (`success` / `error` / `killed` / `precheck_skipped`),
     `error`, `result` — there is no `last_result` column. A failure is
     a run with status `error` or `killed`; the summary prefers `error`
@@ -201,7 +203,9 @@ def main() -> int:
     queries_attempted = 0
     conn = None
     try:
-        conn = sqlite3.connect(args.db, timeout=5)
+        conn = sqlite3.connect(
+            Path(args.db).resolve().as_uri() + "?mode=ro", uri=True, timeout=5
+        )
         queries_attempted += 1
         try:
             payload["stuck_tasks"] = _query_stuck_tasks(
@@ -265,18 +269,31 @@ def main() -> int:
             f"recent task failures: {len(payload['recent_failures'])} in last 24h"
         )
 
-    # Per-docstring contract: exit 1 if connect succeeded but every
-    # query raised — without this, a schema mismatch / dropped table
-    # would produce a "silent green" with only failure-alerts populated.
-    if queries_attempted > 0 and queries_succeeded == 0:
+    # Any failed query gets one actionable stderr remediation;
+    # exit 1 only when every query raised.
+    if queries_succeeded < queries_attempted:
+        pragma_code = (
+            'import sqlite3,sys; from pathlib import Path; '
+            'c=sqlite3.connect(Path(sys.argv[1]).resolve().as_uri()+"?mode=ro", uri=True); '
+            '[print(t, c.execute("PRAGMA table_info("+t+")").fetchall()) '
+            'for t in ("messages", "task_run_logs", "scheduled_tasks")]'
+        )
+        failed = (
+            "every check"
+            if queries_succeeded == 0
+            else f"{queries_attempted - queries_succeeded} of {queries_attempted} checks"
+        )
         print(
-            f"system-status-checks: connected to {args.db} but every check "
-            f"raised; see `alerts` in stdout for per-query reasons. Likely "
+            f"system-status-checks: connected to {args.db} but {failed} raised; "
+            f"see `alerts` in stdout for per-query reasons; "
+            f"failed checks' fields are unavailable, not empty. Likely "
             f"causes: schema drift, missing tables, or a corrupted DB. "
-            f"Run `sqlite3 {args.db} '.schema'` to verify the expected "
+            f"Run `python3 -c {shlex.quote(pragma_code)} {shlex.quote(args.db)}` "
+            f"to verify the expected "
             f"tables (messages, task_run_logs, scheduled_tasks) exist.",
             file=sys.stderr,
         )
+    if queries_succeeded == 0:
         print(json.dumps(payload))
         return 1
 

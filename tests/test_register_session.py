@@ -51,6 +51,8 @@ def register_session(tmp_path, monkeypatch):
     Caller is responsible for populating messages.db (or leaving it
     missing for the sqlite-error path)."""
     monkeypatch.delenv("CLAUDE_CODE_SESSION_ID", raising=False)
+    monkeypatch.setenv("NANOCLAW_GROUP_FOLDER", "telegram_swarm")
+    monkeypatch.setenv("NANOCLAW_SESSION_NAME", "default")
     messages_db = tmp_path / "messages.db"
     state_path = tmp_path / "session-state.json"
     sentinel = tmp_path / "session_bootstrapped"
@@ -127,6 +129,8 @@ def test_scheduled_command_registers_without_changing_bootstrap_state(
     """
     module, messages_db, state_path, sentinel = register_session
     _make_messages_db(messages_db, "db-scheduled-session")
+    with sqlite3.connect(messages_db) as conn:
+        conn.execute("UPDATE sessions SET session_name = 'maintenance'")
     monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
     if identity_source:
         monkeypatch.setenv(identity_source, "scheduled-session")
@@ -302,22 +306,92 @@ def test_shared_identity_roundtrip_skips_same_session_and_reboots_new_one(
     assert json.loads(capsys.readouterr().out)["reason"] == "sentinel_mismatch"
 
 
-def test_sqlite_error_falls_back_to_null_session_id(register_session, monkeypatch, capsys):
+@pytest.mark.parametrize("existing_db", [False, True], ids=["missing-db", "missing-table"])
+def test_unavailable_database_returns_null_without_creating_replacement(
+    register_session, monkeypatch, capsys, existing_db
+):
     module, messages_db, state_path, _sentinel = register_session
-    # messages.db intentionally not created — sqlite3.connect() will
-    # create an empty file, then the SELECT against a missing `sessions`
-    # table raises sqlite3.OperationalError (a subclass of sqlite3.Error).
+    if existing_db:
+        with sqlite3.connect(messages_db):
+            pass
     monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-session-1")
-    monkeypatch.setenv("NANOCLAW_SESSION_NAME", "default")
+
+    module.main([])
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert messages_db.exists() is existing_db
+    assert payload["session_id"] is None
+    assert payload["wrote_state"] is True
+    assert str(messages_db) in captured.err
+    assert "session_id unavailable" in captured.err
+    assert "Check the host messages.db mount and sessions schema" in captured.err
+    assert "do not create a replacement" in captured.err
+    state = json.loads(state_path.read_text())
+    assert state["sessions"]["default"]["session_id"] is None
+    assert state["session_id"] is None
+
+
+def test_database_lookup_and_state_use_both_runtime_keys(register_session, monkeypatch, capsys):
+    module, messages_db, state_path, _sentinel = register_session
+    _make_messages_db(messages_db, "other-session")
+    with sqlite3.connect(messages_db) as conn:
+        conn.execute("INSERT INTO sessions VALUES ('other-group', 'maintenance', 'wrong-group')")
+        conn.execute("INSERT INTO sessions VALUES ('telegram_swarm', 'maintenance', 'wanted')")
+    monkeypatch.setenv("NANOCLAW_SESSION_NAME", "maintenance")
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-session-1")
 
     rc, payload = _run_and_capture(module, capsys)
 
     assert rc is None
-    assert payload["session_id"] is None
-    assert payload["wrote_state"] is True
+    assert payload["session_id"] == "wanted"
     state = json.loads(state_path.read_text())
-    assert state["sessions"]["default"]["session_id"] is None
+    assert state["sessions"]["maintenance"]["session_id"] == "wanted"
+    assert state["session_id"] == "wanted"
+
+
+@pytest.mark.parametrize("name", ["NANOCLAW_GROUP_FOLDER", "NANOCLAW_SESSION_NAME"])
+@pytest.mark.parametrize("value", [None, ""])
+def test_database_lookup_requires_runtime_identity(
+    register_session, monkeypatch, capsys, name, value
+):
+    module, messages_db, state_path, _sentinel = register_session
+    _make_messages_db(messages_db, "must-not-borrow")
+    if value is None:
+        monkeypatch.delenv(name)
+    else:
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "claude-session-1")
+
+    module.main([])
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert payload["session_id"] is None
+    state = json.loads(state_path.read_text())
     assert state["session_id"] is None
+    assert state["sessions"][payload["session_name"]]["session_id"] is None
+    assert "session_id unavailable" in captured.err
+    assert name in captured.err
+    assert "Run through the host runtime" in captured.err
+
+
+@pytest.mark.parametrize(
+    "name,value",
+    [("NANOCLAW_GROUP_FOLDER", "absent-group"), ("NANOCLAW_SESSION_NAME", "maintenance")],
+)
+def test_database_lookup_does_not_borrow_unmatched_row(
+    register_session, monkeypatch, capsys, name, value
+):
+    module, messages_db, _state_path, _sentinel = register_session
+    _make_messages_db(messages_db, "must-not-borrow")
+    monkeypatch.setenv(name, value)
+
+    assert module.read_session_id_from_db() is None
+    diagnostic = capsys.readouterr().err
+    assert "session_id unavailable" in diagnostic
+    assert value in diagnostic
+    assert "Check the host sessions registration" in diagnostic
 
 
 def test_legacy_unversioned_state_upgrades_to_v1(register_session, monkeypatch, capsys):

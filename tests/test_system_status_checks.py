@@ -11,7 +11,9 @@ testing-standards`:
 """
 
 import json
+import shlex
 import sqlite3
+import subprocess
 
 import pytest
 
@@ -38,7 +40,7 @@ OUTSIDE_24H = "2026-07-05T10:00:00.000Z"
 def _build_test_db(path) -> None:
     """Create a minimal `messages.db` with the production shape of the
     tables the probe queries (`task_run_logs` columns per
-    `rules/messages-db-schema.md` — verified against the live host DB).
+    `skills/system-status/references/messages-db-schema.md` — verified against the live host DB).
     Tests populate rows via `_insert_run_log` per scenario."""
     conn = sqlite3.connect(str(path))
     conn.executescript(
@@ -98,6 +100,26 @@ def test_db_missing_returns_exit_1_with_alert(system_status_checks, monkeypatch,
     assert payload["alerts"] == [f"db missing: {tmp_path / 'missing.db'}"]
     assert payload["stuck_tasks"] == []
     assert payload["recent_failures"] == []
+
+
+def test_db_removed_before_connect_is_not_recreated(
+    system_status_checks, monkeypatch, capsys, tmp_path
+):
+    db = tmp_path / "messages.db"
+    _build_test_db(db)
+
+    def remove_before_connect(path):
+        db.unlink()
+        return 0
+
+    monkeypatch.setattr(system_status_checks.os.path, "getsize", remove_before_connect)
+
+    code, out, err = _run(system_status_checks, monkeypatch, capsys, "--db", str(db))
+
+    assert code == 1
+    assert not db.exists()
+    assert any("db connect failed" in alert for alert in json.loads(out)["alerts"])
+    assert "read access" in err
 
 
 def test_clean_db_emits_silent_success(system_status_checks, monkeypatch, capsys, tmp_path):
@@ -334,11 +356,14 @@ def test_db_missing_writes_stderr_diagnostic(system_status_checks, monkeypatch, 
     assert "verify the trusted-tier mount" in err
 
 
-def test_all_queries_fail_returns_exit_1(system_status_checks, monkeypatch, capsys, tmp_path):
+@pytest.mark.parametrize("db_name", ["messages.db", "owner's messages.db"])
+def test_all_queries_fail_returns_exit_1(
+    system_status_checks, monkeypatch, capsys, tmp_path, db_name
+):
     """Connect succeeds but every probe raises (e.g. schema drift,
     missing tables) → exit 1, stderr diagnostic, JSON payload still
     on stdout with per-query failure alerts."""
-    db = tmp_path / "messages.db"
+    db = tmp_path / db_name
     # Create a valid SQLite file with NONE of the expected tables —
     # connect will succeed; every query will raise sqlite3.OperationalError.
     conn = sqlite3.connect(str(db))
@@ -355,7 +380,39 @@ def test_all_queries_fail_returns_exit_1(system_status_checks, monkeypatch, caps
     assert any("recent-failures query failed" in a for a in payload["alerts"])
     # stderr explains the remediation path.
     assert "every check raised" in err
-    assert ".schema" in err
+    assert "sqlite3 " not in err
+    command = err.split("Run `", 1)[1].split("`", 1)[0]
+    inspected = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
+    assert inspected.stdout.splitlines() == [
+        "messages []",
+        "task_run_logs []",
+        "scheduled_tasks []",
+    ]
+    assert inspected.stderr == ""
+    # The diagnostic inspects read-only; even its remediation cannot create a substitute DB.
+    db.unlink()
+    missing = subprocess.run(shlex.split(command), capture_output=True, text=True, check=False)
+    assert missing.returncode != 0
+    assert not db.exists()
+
+
+def test_one_query_failure_reports_remediation_and_exits_0(
+    system_status_checks, monkeypatch, capsys, tmp_path
+):
+    db = tmp_path / "messages.db"
+    _build_test_db(db)
+    with sqlite3.connect(str(db)) as conn:
+        conn.execute("DROP TABLE scheduled_tasks")
+
+    code, out, err = _run(system_status_checks, monkeypatch, capsys, "--db", str(db))
+    assert code == 0
+    payload = json.loads(out)
+    assert any("stuck-tasks query failed" in alert for alert in payload["alerts"])
+    assert "1 of 3 checks raised" in err
+    assert "unavailable, not empty" in err
+    command = err.split("Run `", 1)[1].split("`", 1)[0]
+    inspected = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True)
+    assert "scheduled_tasks []" in inspected.stdout.splitlines()
 
 
 def test_db_size_above_threshold_alerts(system_status_checks, monkeypatch, capsys, tmp_path):
