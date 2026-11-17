@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.134 — 2026-11-17
+
+- chore(deps-dev): bump ruff from 0.17.3 to 0.17.4 (#126)
+
 ## 0.1.133 — 2026-11-17
 
 - docs(rules): merge duplicate trusted rules; schema to reference (#129)
