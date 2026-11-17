@@ -37,13 +37,12 @@ def installed_context(tmp_path):
     return native, startup.read_text()
 
 
-def test_installed_verification_retains_triggers_and_ipc_readback(installed_context):
+def test_installed_ground_truth_retains_trigger_and_directives(installed_context):
     _, startup = installed_context
     assert (
         'alwaysApply: false\napplyTo: "** — when answering substantive trusted-tier questions '
         'or producing claims that need verification"\n---\n\n# Ground Truth — Trusted Extensions'
     ) in startup
-    assert "alwaysApply: true\n---\n\n## Verification Protocol" in startup
     for directive in (
         "# Ground Truth — Trusted Extensions",
         "answering substantive trusted-tier questions or producing claims that need verification",
@@ -69,11 +68,6 @@ def test_installed_verification_retains_triggers_and_ipc_readback(installed_cont
         "use Calendar destination and Maps travel time to compute departure",
         "subtract the reminder offset from departure, not event start",
         "These sources are unavailable in untrusted containers",
-        "## Verification Protocol",
-        "/workspace/ipc/messages/",
-        "file exists at the expected path",
-        "read back",
-        "payload matches what you intended",
     ):
         assert directive in startup
 

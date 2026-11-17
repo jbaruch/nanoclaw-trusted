@@ -10,13 +10,9 @@
     ".github/fleet-review-enabled",
     "rules/container-trust-levels.md",
     "rules/installed-content-immutable.md",
-    "rules/verification-protocol.md",
     "rules/github-data-via-gh.md",
     "rules/global-memory.md",
     "rules/ground-truth-trusted.md",
-    "rules/messages-db-schema.md",
-    "rules/no-silent-defer.md",
-    "skills/system-status/*",
     "skills/google-ops/*",
     "skills/trusted-memory/*"
   ],

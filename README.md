@@ -40,7 +40,6 @@ Tessl imports the complete bytes of every declared rule. Frontmatter narrows app
 | [proactive-participation](rules/proactive-participation.md) | always-on | In trusted groups you're a participant — chime in when useful. Default-silence still applies; a reaction alone is complete participation. |
 | [reply-threading](rules/reply-threading.md) | always-on | Always reply-thread user messages using `reply_to`. Required for heartbeat to track unanswered messages. |
 | [skills-policy](rules/skills-policy.md) | always-on | If a skill exists, invoke it with `Skill(skill: "name")`. Never read SKILL.md files manually or paste content into Agent prompts. No improvising. |
-| [verification-protocol](rules/verification-protocol.md) | always-on | Points to core post-action verification; adds trusted IPC expected-path existence and payload readback checks. |
 | [wiki-awareness](rules/wiki-awareness.md) | conditional | Consult or file knowledge when ingesting sources, answering questions, or producing reusable answers. |
 
 ## Skills
