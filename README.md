@@ -55,6 +55,14 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## Development dependencies
 
+[Renovate](renovate.json) is this repo's only dependency scanner. Its native
+[pip requirements](https://docs.renovatebot.com/modules/manager/pip_requirements/)
+and [GitHub Actions](https://docs.renovatebot.com/modules/manager/github-actions/)
+managers cover `requirements-dev.txt` and `.github/workflows/`. Automatic update
+PRs are scheduled before 6am on Monday (UTC), with `chore(deps)` commits and at
+most five concurrent PRs. Minor, patch and digest updates share one PR; major
+updates require approval in Renovate's Dependency Dashboard.
+
 `tessl.json` declares this repo's dev-time plugin dependencies.
 
 - Every `jbaruch/*` dependency floats at `latest` (Runtime-Managed Manifest Carve-Out, `jbaruch/coding-policy: dependency-management`).
