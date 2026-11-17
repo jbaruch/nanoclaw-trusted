@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.133 — 2026-11-17
+
+- docs(rules): merge duplicate trusted rules; schema to reference (#129)
+
 ## 0.1.132 — 2026-11-15
 
 - fix(trusted-memory): skip the bootstrap on scheduled wakes (#130)
