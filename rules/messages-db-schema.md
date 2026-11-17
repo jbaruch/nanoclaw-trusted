@@ -5,31 +5,28 @@ applyTo: "** — when querying messages.db or referencing its column names"
 
 # messages.db Schema
 
-## Don't Guess Column Names
+## Inspect before selecting columns
 
-The shared SQLite at `/workspace/store/messages.db` is accessed via `python3 -c 'import sqlite3; conn = sqlite3.connect("/workspace/store/messages.db"); ...'` — the standalone `sqlite3` CLI is not installed in the container image. The tables below have schemas confirmed by `PRAGMA table_info(<table>)`. Don't guess these column names:
+- Use Python `sqlite3` with URI `file:/workspace/store/messages.db?mode=ro` and `uri=True` for reads; the standalone `sqlite3` CLI is absent.
+- Before selecting columns, read the installed inventory: `/home/node/.claude/skills/tessl__system-status/references/messages-db-schema.md`.
+- Check live `PRAGMA table_info(<table>)`; never guess column names.
+- Use `trigger_pattern`, not `trigger_word` or `trigger`.
+- `registered_groups` uses `jid`, not `chat_jid`; `trusted` lives in `container_config` JSON.
+- `last_result` belongs to `scheduled_tasks`; `task_run_logs` uses `status`, `result`, `error`.
 
-- `trigger_word` — the actual column is `trigger_pattern`
-- `chat_jid` on `registered_groups` — it's not a column there; only on `messages`
-- `trusted` as a column — lives inside `container_config` JSON, not its own column
-- `last_result` on `task_run_logs` — that column lives on `scheduled_tasks`; `task_run_logs` carries `status`, `result`, `error`
+## Keys and comparisons
 
-## Tables
+- `messages` has composite PK (`id`, `chat_jid`).
+- `sessions` has composite PK (`group_folder`, `session_name`). Scope session lookups by both host-supplied `NANOCLAW_GROUP_FOLDER` and `NANOCLAW_SESSION_NAME`; missing identity means unavailable, never an arbitrary row.
+- `tz_state` is a singleton (`id = 1`); other PKs and lookup values are in the inventory.
+- Compare `task_run_logs.run_at` against matching ISO-8601 `T`/`Z` strings, never SQLite `datetime(...)` output.
 
-- **`registered_groups`** (per-group config): `jid`, `name`, `folder`, `trigger_pattern`, `added_at`, `container_config`, `requires_trigger`, `is_main`. The `trigger_pattern` column is what callers sometimes guess as `trigger_word` or `trigger`. The `trusted` flag is NOT a column — it lives inside `container_config` JSON.
-- **`chats`**: `jid`, `name`, `last_message_time`, `channel`, `is_group`.
-- **`messages`**: `id`, `chat_jid`, `sender`, `sender_name`, `content`, `timestamp`, `is_from_me`, `is_bot_message`, `reply_to_message_id`, `reply_to_message_content`, `reply_to_sender_name`, `telegram_message_id`. Composite PK (`id`, `chat_jid`).
-- **`scheduled_tasks`**: `id`, `group_folder`, `chat_jid`, `prompt`, `schedule_type`, `schedule_value`, `next_run`, `last_run`, `last_result`, `status`, `created_at`, `context_mode`, `script`, `created_by_role`, `schedule_timezone`, `continuation_cycle_id`, `session_id`, `source`.
-- **`tz_state`** (singleton, `id = 1`): `id`, `current_tz`, `home_tz`, `scheduler_tz`, `schema_version`.
-- **`follow_me_tasks`**: `name` (PK), `local_time`, `schedule_value`, `last_run_date`, `pending_run_at`, `schema_version`, `updated_at`.
-- **`phase_completions`**: `phase` (PK), `last_completed`, `metadata`, `updated_at`, `schema_version`.
-- **`sessions`**: `group_folder`, `session_name` (default `'default'`), `session_id`. Composite PK (`group_folder`, `session_name`) — one row per group session, NOT a singleton. A bare `LIMIT 1` without `WHERE` returns an arbitrary group's row once more than one group has a session; `register-session.py` documents its single-row assumption inline.
-- **`task_run_logs`**: `id` (PK autoincrement), `task_id` (FK → `scheduled_tasks.id`), `run_at`, `duration_ms`, `status`, `result`, `error`. There is no `last_result` column — that name belongs on `scheduled_tasks`. `run_at` is ISO-8601 with `T` and `Z` (`2026-07-07T21:18:12.277Z`), NOT SQLite's `datetime('now')` shape — compare against a matching ISO string, never against `datetime(...)` output. Observed `status` values: `success`, `error`, `killed`, `precheck_skipped`.
+## Mutations
 
-## Prefer MCP Tools for Mutations
+- Prefer MCP host tools exposing the field (`chat_status`, `inspect_gate_decisions`, `get_scheduled_tasks`) over raw SQL.
+- Direct SQL is for read-mostly inspection; mutate only when concurrency is provably safe.
+- `follow_me_tasks` writes require `BEGIN IMMEDIATE` per `nanoclaw-admin: follow-me-two-phase-lock`.
 
-Where an MCP host tool already exposes the field (`chat_status`, `inspect_gate_decisions`, `get_scheduled_tasks`, etc.), prefer it over raw SQL — the tool also handles the host-side concurrency contract (`BEGIN IMMEDIATE` for `follow_me_tasks` writes per the `nanoclaw-admin: follow-me-two-phase-lock` rule). Direct SQL is for read-mostly inspection; mutations should go through the tool path unless concurrency is provably safe.
+## Schema drift
 
-## Schema Drift
-
-If a `PRAGMA table_info` result diverges from the columns above, the host has shipped a state-migration not yet reflected in this rule. Update the rule in lock-step rather than guessing the new shape.
+- If live PRAGMA differs from the inventory, update the reference in lock-step with the host schema change; never guess the new shape.

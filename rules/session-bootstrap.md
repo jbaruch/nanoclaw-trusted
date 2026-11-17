@@ -1,5 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
+applyTo: "** — at session start, before the user request, including bootstrap sentinel checks"
 ---
 
 # Session bootstrap

@@ -1,6 +1,6 @@
 ---
 alwaysApply: false
-applyTo: "** — when working with the personal wiki under /workspace/trusted/wiki/ or its raw sources"
+applyTo: "** — when ingesting source material, answering questions, producing reusable answers, or working with /workspace/trusted/wiki/ and /workspace/trusted/sources/"
 ---
 
 # Wiki Awareness
