@@ -6,6 +6,7 @@
 .github/
 
 # Test suite and dev tooling
+/renovate.json
 tests/
 pyproject.toml
 requirements-dev.txt

@@ -55,6 +55,26 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## Development dependencies
 
+[Renovate](renovate.json) is this repo's only dependency scanner. Its native
+[pip requirements](https://docs.renovatebot.com/modules/manager/pip_requirements/)
+and [GitHub Actions](https://docs.renovatebot.com/modules/manager/github-actions/)
+managers cover `requirements-dev.txt` and `.github/workflows/`. Automatic update
+PRs are scheduled before 6am on Monday (UTC), with `chore(deps)` commits and at
+most five concurrent PRs. Minor, patch and digest updates share one PR.
+
+Major updates open PRs on the same Monday schedule, with no dashboard approval.
+`prConcurrentLimit: 5` caps concurrent PRs.
+
+See Renovate's [configuration validation guide](https://docs.renovatebot.com/config-validation/)
+for validator usage.
+
+Deleting `dependabot.yml` does not disable
+[Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file)
+enabled in repository settings. The [fleet review trigger](.github/workflows/review-trigger.yml)
+skips Dependabot and fork PRs, which lack access to the
+[Actions dispatch secret](https://docs.github.com/en/code-security/reference/supply-chain-security/troubleshoot-dependabot/dependabot-on-actions).
+The scheduled coding-policy review covers these PRs.
+
 `tessl.json` declares this repo's dev-time plugin dependencies.
 
 - Every `jbaruch/*` dependency floats at `latest` (Runtime-Managed Manifest Carve-Out, `jbaruch/coding-policy: dependency-management`).
