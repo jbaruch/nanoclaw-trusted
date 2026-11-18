@@ -63,17 +63,14 @@ PRs are scheduled before 6am on Monday (UTC), with `chore(deps)` commits and at
 most five concurrent PRs. Minor, patch and digest updates share one PR.
 
 Major updates wait for approval **before Renovate creates a branch or PR**, as
-required by [the fleet dependency policy](https://github.com/jbaruch/nanoclaw/issues/1433).
+specified in [issue #1433](https://github.com/jbaruch/nanoclaw/issues/1433).
 To approve one, select its checkbox in this repo's Dependency Dashboard issue.
 This is Renovate's native
 [`dependencyDashboardApproval`](https://docs.renovatebot.com/configuration-options/#dependencydashboardapproval)
 behavior, separate from reviewing and merging the resulting PR.
 
-Validate the configuration from the repository root with Node.js and npm installed:
-
-```sh
-npx --yes --package renovate -- renovate-config-validator
-```
+See Renovate's [configuration validation guide](https://docs.renovatebot.com/config-validation/)
+for validator usage.
 
 Deleting `dependabot.yml` does not disable
 [Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file)
