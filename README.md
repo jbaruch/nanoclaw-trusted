@@ -60,8 +60,20 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 and [GitHub Actions](https://docs.renovatebot.com/modules/manager/github-actions/)
 managers cover `requirements-dev.txt` and `.github/workflows/`. Automatic update
 PRs are scheduled before 6am on Monday (UTC), with `chore(deps)` commits and at
-most five concurrent PRs. Minor, patch and digest updates share one PR; major
-updates require approval in Renovate's Dependency Dashboard.
+most five concurrent PRs. Minor, patch and digest updates share one PR.
+
+Major updates wait for approval **before Renovate creates a branch or PR**, as
+required by [the fleet dependency policy](https://github.com/jbaruch/nanoclaw/issues/1433).
+To approve one, select its checkbox in this repo's Dependency Dashboard issue.
+This is Renovate's native
+[`dependencyDashboardApproval`](https://docs.renovatebot.com/configuration-options/#dependencydashboardapproval)
+behavior, separate from reviewing and merging the resulting PR.
+
+Validate the configuration from the repository root with Node.js and npm installed:
+
+```sh
+npx --yes --package renovate -- renovate-config-validator
+```
 
 Deleting `dependabot.yml` does not disable
 [Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file)
