@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.135 — 2026-11-18
+
+- chore(deps): make Renovate the only dependency scanner (#135)
+
 ## 0.1.134 — 2026-11-17
 
 - chore(deps-dev): bump ruff from 0.17.3 to 0.17.4 (#126)
