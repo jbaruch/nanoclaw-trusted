@@ -62,12 +62,8 @@ managers cover `requirements-dev.txt` and `.github/workflows/`. Automatic update
 PRs are scheduled before 6am on Monday (UTC), with `chore(deps)` commits and at
 most five concurrent PRs. Minor, patch and digest updates share one PR.
 
-Major updates wait for approval **before Renovate creates a branch or PR**, as
-specified in [issue #1433](https://github.com/jbaruch/nanoclaw/issues/1433).
-To approve one, select its checkbox in this repo's Dependency Dashboard issue.
-This is Renovate's native
-[`dependencyDashboardApproval`](https://docs.renovatebot.com/configuration-options/#dependencydashboardapproval)
-behavior, separate from reviewing and merging the resulting PR.
+Major updates open PRs on the same Monday schedule, with no dashboard approval.
+`prConcurrentLimit: 5` caps concurrent PRs.
 
 See Renovate's [configuration validation guide](https://docs.renovatebot.com/config-validation/)
 for validator usage.
