@@ -63,6 +63,13 @@ PRs are scheduled before 6am on Monday (UTC), with `chore(deps)` commits and at
 most five concurrent PRs. Minor, patch and digest updates share one PR; major
 updates require approval in Renovate's Dependency Dashboard.
 
+Deleting `dependabot.yml` does not disable
+[Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file)
+enabled in repository settings. The [fleet review trigger](.github/workflows/review-trigger.yml)
+skips Dependabot and fork PRs, which lack access to the
+[Actions dispatch secret](https://docs.github.com/en/code-security/reference/supply-chain-security/troubleshoot-dependabot/dependabot-on-actions).
+The scheduled coding-policy review covers these PRs.
+
 `tessl.json` declares this repo's dev-time plugin dependencies.
 
 - Every `jbaruch/*` dependency floats at `latest` (Runtime-Managed Manifest Carve-Out, `jbaruch/coding-policy: dependency-management`).
